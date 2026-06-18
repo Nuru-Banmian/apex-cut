@@ -1,0 +1,36 @@
+# API Keys
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtualenv
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated files
+data/*
+output/*
+models/*
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Keep directory structure
+!data/.gitkeep
+!output/.gitkeep
+!models/.gitkeep
