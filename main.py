@@ -24,7 +24,7 @@ def cmd_serve(args):
     """启动 FastAPI 服务."""
     import uvicorn
     from starlette.formparsers import MultiPartParser
-    from autocut.api.routes import register_routes
+    from apex_cut.api.routes import register_routes
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
 
@@ -41,7 +41,7 @@ def cmd_serve(args):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -51,12 +51,13 @@ def cmd_serve(args):
     print(f"\n🎬 AutoCut Agent API 启动中...")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   文档: http://localhost:{args.port}/docs\n")
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+
+    uvicorn.run(app, host="0.0.0.0", port=args.port, loop="asyncio")
 
 
 def cmd_run(args):
     """命令行直接运行剪辑任务."""
-    from autocut.workflow import run_editing_task
+    from apex_cut.workflow import run_editing_task
 
     print("\n🎬 AutoCut Agent — 命令行模式\n")
     print(f"   视频: {args.video}")
@@ -84,8 +85,8 @@ def cmd_run(args):
         print("  问题列表:")
         for issue in result["review_issues"]:
             print(f"    - {issue}")
-    if result.get("draft_output"):
-        print(f"  输出文件: {result['draft_output']}")
+    if result.get("final_output"):
+        print(f"  输出文件: {result['final_output']}")
     if result.get("error"):
         print(f"  ❌ 错误: {result['error']}")
     print("=" * 60 + "\n")
@@ -115,7 +116,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        from autocut import __version__
+        from apex_cut import __version__
         print(f"AutoCut Agent v{__version__}")
         return
 

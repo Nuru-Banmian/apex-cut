@@ -1,86 +1,101 @@
-# AutoCut Agent
+# ApexCut Agent
 
-基于 **LangGraph** 多智能体协作的自动视频剪辑 AI Agent 后端。
+> 输入 Apex Legends 游戏录像和一句话需求，AI 自动剪辑高光集锦。
 
-## 架构
+## 这是什么
 
-```
-用户请求 → 导演 Agent → 分析 Agent → 剪辑 Agent → 审核 Agent
-                            ↑                       │
-                            └─── 不通过则重剪 ───────┘
-```
+打完一局 Apex 录了 20 分钟，不想手动翻找击杀片段？ApexCut Agent 自动帮你干这件事：
 
-- **导演 Agent** — 解析用户需求（目标时长、画幅、风格），制定剪辑策略
-- **分析 Agent** — 语音转写、场景检测、静音识别、音频能量分析、多模态画面描述
-- **剪辑 Agent** — 基于分析结果执行裁剪、拼接、字幕、转场、BGM 匹配
-- **审核 Agent** — 质量评分（时长/内容/节奏/技术），不通过则反馈修改
+1. 你上传一个视频，配置好api-key
+2. AI 自动分析画面数据、定位战斗时刻、裁剪导出成品
+
+基于 LangGraph 多智能体协作，LLM 负责理解需求，纯代码规则引擎负责确定片段边界——不会因为 AI 幻觉剪错位置。
+
+## 功能
+
+- 🎮 专为 Apex Legends 设计，识别击杀/助攻/伤害事件
+- 🧠 LLM 翻译自然语言需求为精确剪辑参数
+- 👁️ 视觉 AI 读取游戏 UI 数据，无需 OCR
+- ⚡ 侧挂缓存，同一视频重跑秒级跳过分析
+- 🎬 FFmpeg 自动 GPU 加速（NVENC/QSV/AMF）
+- 🌐 Web UI + 命令行两种使用方式
+- 🔑 支持 DeepSeek / Qwen / GLM / OpenAI / Anthropic
+
+## 环境要求
+
+- Python 3.11+
+- FFmpeg（建议完整版，支持 GPU 编码器）
+- Node.js 18+（仅 Web UI 需要）
 
 ## 快速开始
 
-### 1. 安装依赖
-
 ```bash
+# 1. 克隆项目
+git clone https://github.com/Nuru-Banmian/apex-cut.git
+cd apex-cut
+
+# 2. 安装依赖
 pip install -r requirements.txt
-```
 
-### 2. 配置环境变量
-
-```bash
+# 3. 配置 API Key
 cp .env.example .env
-# 编辑 .env 填入你的 API Key
+# 编辑 .env，填入至少一个 LLM 提供商的 Key
+
+# 4. 运行
+python main.py run --video sample.mp4 --requirement "保留所有击杀，快节奏2分钟"
 ```
 
-### 3. 命令行运行
+**Web UI 模式：**
 
 ```bash
-python main.py run --video sample.mp4 --requirement "剪成3分钟精华版，竖屏9:16"
+.\start.ps1              # Windows 一键启动
+# 后端 http://localhost:8000  |  前端 http://localhost:3000
 ```
 
-### 4. 启动 API 服务
+## 配置
+
+`.env` 主要选项：
 
 ```bash
-python main.py serve --port 8000
-# 访问 http://localhost:8000/docs 查看 API 文档
+LLM_PROVIDER=deepseek          # 文本 LLM：deepseek / qwen / zhipu / openai / anthropic
+DEEPSEEK_API_KEY=sk-xxx
+
+VISION_PROVIDER=zhipu          # 视觉 LLM（用于读取游戏画面数据）
+ZHIPU_API_KEY=xxx
+
+FFMPEG_HWACCEL=auto            # 硬件加速：auto / cuda / qsv / amf / none
+MAX_REVIEW_ROUNDS=6            # 审核修改最大轮数
 ```
+
+文本和视觉模型可以分别选择不同的提供商（比如 DeepSeek 做文本 + 智谱做视觉）。
 
 ## API
+
+后端提供 FastAPI 接口，完整文档见 `http://localhost:8000/docs`。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/tasks/create` | 提交剪辑任务 |
-| GET | `/api/tasks/{id}` | 查询任务状态 |
-| GET | `/api/tasks/{id}/result` | 获取成品信息 |
-| GET | `/api/tasks/{id}/download` | 下载成品视频 |
+| GET | `/api/tasks/{id}/stream` | SSE 实时进度 |
+| GET | `/api/tasks/{id}/result` | 获取结果 |
+| GET | `/api/tasks/{id}/download` | 下载成品 |
+| POST | `/api/upload` | 上传视频素材 |
+| GET | `/api/materials` | 素材列表 |
+| GET | `/api/config` | 当前配置 |
+| GET | `/api/providers` | 可用模型列表 |
 
 ## 项目结构
 
 ```
-autocut-agent/
-├── autocut/
-│   ├── agents/          # Agent 节点实现
-│   │   ├── director.py  #   导演 — 需求解析
-│   │   ├── analyzer.py  #   分析 — 视频理解
-│   │   ├── editor.py    #   剪辑 — 视频操作
-│   │   └── reviewer.py  #   审核 — 质量检查
-│   ├── tools/           # 工具层 (Function Calling)
-│   │   ├── video_tools.py    # FFmpeg 视频操作
-│   │   ├── audio_tools.py    # Whisper 语音转写 + 音频分析
-│   │   ├── subtitle_tools.py # 字幕生成
-│   │   └── vision_tools.py   # 多模态视觉分析
-│   ├── api/             # FastAPI 路由
-│   ├── state.py         # LangGraph State 定义
-│   ├── workflow.py      # LangGraph 工作流编排
-│   └── config.py        # 全局配置
+apex-cut/
+├── apex_cut/agents/     # Director → Analyzer → Editor → Reviewer
+├── apex_cut/tools/      # FFmpeg 封装 + 视觉分析
+├── apex_cut/api/        # FastAPI 路由
+├── frontend/            # React (Vite)
 ├── main.py              # 启动入口
-└── requirements.txt
+└── start.ps1            # 一键启动脚本
 ```
 
-## 技术栈
+## License
 
-- **Agent 框架**: LangGraph + LangChain
-- **LLM**: GPT-4o / Claude（多模态理解 + 剪辑决策）
-- **视频处理**: FFmpeg（裁剪/拼接/字幕/转场）
-- **语音转写**: Faster-Whisper
-- **场景检测**: PySceneDetect
-- **音频分析**: librosa + pydub
-- **API**: FastAPI
+MIT

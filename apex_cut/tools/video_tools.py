@@ -15,7 +15,7 @@ from typing import Optional
 
 from langchain_core.tools import tool
 
-from autocut.config import settings, OUTPUT_DIR
+from apex_cut.config import settings, OUTPUT_DIR
 
 
 # ═══════════════════════════════════════════════════════════
@@ -75,14 +75,84 @@ class FFmpegTool:
         self.ffmpeg = ffmpeg_path or settings.ffmpeg_path
         if not shutil.which(self.ffmpeg):
             print(f"⚠️ FFmpeg ('{self.ffmpeg}') 未找到，请安装 FFmpeg 并确保在 PATH 中")
+        self._codec = settings.output_codec
+        self._hwaccel = settings.ffmpeg_hwaccel
+        self._gpu_decode = self._hwaccel != "none" and shutil.which(self.ffmpeg)
+        if self._codec != "libx264":
+            print(f"  🚀 GPU 编码: {self._hwaccel} → {self._codec}")
+        if self._gpu_decode:
+            print(f"  🚀 GPU 解码: {self._hwaccel}")
 
-    def _run(self, args: list[str], timeout: int = 3600) -> dict:
-        cmd = [self.ffmpeg, "-hide_banner", "-y"] + args
+    def _decode_args(self) -> list[str]:
+        """GPU 硬件解码参数（用于不涉及 filter_complex 的简单操作）."""
+        if not self._gpu_decode:
+            return []
+        if self._hwaccel == "cuda":
+            return ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+        elif self._hwaccel == "qsv":
+            return ["-hwaccel", "qsv", "-hwaccel_output_format", "qsv"]
+        return []
+
+    def _encode_args(self) -> list[str]:
+        """根据编码器返回合适的参数列表（CRF/QP/preset 等）."""
+        codec = self._codec
+        q = settings.output_crf
+        if codec == "h264_nvenc":
+            return ["-c:v", codec, "-qp", str(q), "-preset", "p4"]
+        elif codec == "h264_qsv":
+            return ["-c:v", codec, "-global_quality", str(q), "-preset", "medium"]
+        elif codec == "h264_amf":
+            return ["-c:v", codec, "-qp_i", str(q), "-qp_p", str(q), "-quality", "balanced"]
+        else:  # libx264 / libx265
+            return ["-c:v", codec, "-crf", str(q), "-preset", "medium"]
+
+    def _run(self, args: list[str], timeout: int = 3600,
+             progress_cb=None, duration: float = 0) -> dict:
+        cmd = [self.ffmpeg, "-hide_banner", "-y", "-progress", "pipe:1", "-nostats"] + args
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            if r.returncode != 0:
-                return {"success": False, "error": r.stderr.strip()[-500:], "command": " ".join(cmd)}
-            return {"success": True, "output": r.stderr.strip(), "command": " ".join(cmd)}
+            if progress_cb and duration > 0:
+                # 实时解析进度
+                import threading, queue
+                q: queue.Queue = queue.Queue()
+                stderr_lines = []
+
+                def _read_stderr(proc):
+                    for line in proc.stderr:
+                        stderr_lines.append(line)
+
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        text=True, bufsize=1)
+                t = threading.Thread(target=_read_stderr, args=(proc,), daemon=True)
+                t.start()
+
+                last_pct = -1
+                for line in proc.stdout:
+                    if line.startswith("out_time="):
+                        try:
+                            time_str = line.split("=", 1)[1].strip()
+                            # 格式 HH:MM:SS.MS
+                            parts = time_str.split(":")
+                            if len(parts) == 3:
+                                current = float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+                                pct = int(current / duration * 100) if duration > 0 else 0
+                                if pct > last_pct:
+                                    last_pct = pct
+                                    progress_cb(pct)
+                        except (ValueError, IndexError):
+                            pass
+
+                proc.wait(timeout=timeout)
+                t.join(timeout=5)
+                stderr_str = "".join(stderr_lines)
+
+                if proc.returncode != 0:
+                    return {"success": False, "error": stderr_str.strip()[-500:], "command": " ".join(cmd)}
+                return {"success": True, "output": stderr_str.strip(), "command": " ".join(cmd)}
+            else:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+                if r.returncode != 0:
+                    return {"success": False, "error": r.stderr.strip()[-500:], "command": " ".join(cmd)}
+                return {"success": True, "output": r.stderr.strip(), "command": " ".join(cmd)}
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "执行超时", "command": " ".join(cmd)}
         except FileNotFoundError:
@@ -210,17 +280,20 @@ class FFmpegTool:
 
     # ── trim ───────────────────────────────────────────
 
-    def trim(self, video_path: str, segments: list[dict], output_path: str) -> dict:
-        """裁剪指定片段并拼接."""
+    def trim(self, video_path: str, segments: list[dict], output_path: str,
+             progress_cb=None) -> dict:
+        """裁剪指定片段并拼接.
+
+        Args:
+            progress_cb: 可选回调 cb(pct: int)，报告 0-100 的进度百分比。
+        """
         if not segments:
             return {"success": False, "error": "segments 不能为空"}
         if not Path(video_path).exists():
             return {"success": False, "error": f"文件不存在: {video_path}"}
 
-        temp_dir = Path(OUTPUT_DIR) / "temp_trim"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
         filter_parts = []
+        total_duration = 0.0
         for i, seg in enumerate(segments):
             start, end = float(seg["start"]), float(seg["end"])
             if end <= start:
@@ -229,6 +302,7 @@ class FFmpegTool:
                 f"[0:v]trim=start={start}:end={end},setpts=PTS-STARTPTS[v{i}];"
                 f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}]"
             )
+            total_duration += end - start
 
         n = len(segments)
         filter_str = ";".join(filter_parts)
@@ -239,13 +313,57 @@ class FFmpegTool:
             "-i", str(Path(video_path)),
             "-filter_complex", filter_str,
             "-map", "[outv]", "-map", "[outa]",
-            "-c:v", settings.output_codec, "-crf", str(settings.output_crf),
-            "-preset", "medium",
+            *self._encode_args(),
             str(Path(output_path)),
-        ])
+        ], progress_cb=progress_cb, duration=total_duration)
         if result["success"]:
             result["output_path"] = str(Path(output_path).resolve())
             result["segments_count"] = n
+        return result
+
+    # ── 拼接 ───────────────────────────────────────
+
+    def concat(self, file_list: list[str], output_path: str) -> dict:
+        """使用 concat demuxer 将多个视频文件拼接为一个.
+
+        Args:
+            file_list: 已排序的视频文件路径列表
+            output_path: 输出文件路径
+
+        Returns:
+            {success, output_path}
+        """
+        if not file_list:
+            return {"success": False, "error": "file_list 不能为空"}
+        if len(file_list) == 1:
+            # 只有一个文件 → 直接复制
+            import shutil
+            shutil.copy2(file_list[0], output_path)
+            return {"success": True, "output_path": str(Path(output_path).resolve())}
+
+        # 写入 concat 列表文件
+        list_path = str(Path(output_path).with_suffix(".txt"))
+        with open(list_path, "w", encoding="utf-8") as f:
+            for fp in file_list:
+                f.write(f"file '{Path(fp).resolve().as_posix()}'\n")
+
+        result = self._run([
+            "-f", "concat",
+            "-safe", "0",
+            "-i", list_path,
+            "-c", "copy",
+            str(Path(output_path)),
+        ])
+
+        # 清理临时列表文件
+        try:
+            Path(list_path).unlink()
+        except Exception:
+            pass
+
+        if result["success"]:
+            result["output_path"] = str(Path(output_path).resolve())
+            result["files_count"] = len(file_list)
         return result
 
     # ── 画幅调整 ───────────────────────────────────────
@@ -260,8 +378,7 @@ class FFmpegTool:
 
         result = self._run([
             "-i", str(Path(video_path)), "-vf", vf,
-            "-c:v", settings.output_codec, "-crf", str(settings.output_crf),
-            "-preset", "medium", "-c:a", "copy",
+            *self._encode_args(), "-c:a", "copy",
             str(Path(output_path)),
         ])
         if result["success"]:
@@ -272,7 +389,7 @@ class FFmpegTool:
 
     def extract_frames(self, video_path: str, interval: float = 2.0,
                        output_dir: str = "", max_frames: int = 300) -> dict:
-        """等间隔抽帧，用于多模态视觉分析."""
+        """等间隔抽帧，用于多模态视觉分析（不用 GPU 解码，兼容 HEVC）."""
         out = Path(output_dir) if output_dir else OUTPUT_DIR / "frames"
         out.mkdir(parents=True, exist_ok=True)
 
@@ -295,8 +412,9 @@ class FFmpegTool:
     # ── 音频提取 ───────────────────────────────────────
 
     def extract_audio(self, video_path: str, output_path: str) -> dict:
-        """提取音频轨道为 16kHz 单声道 WAV (适配 Whisper)."""
-        result = self._run([
+        """提取音频轨道为 16kHz 单声道 WAV."""
+        result = self._run(
+            self._decode_args() + [
             "-i", str(Path(video_path)),
             "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
             str(Path(output_path)),
@@ -333,8 +451,7 @@ class FFmpegTool:
 
         result = self._run([
             "-i", str(Path(video_path)), "-vf", vf,
-            "-c:v", settings.output_codec, "-crf", str(settings.output_crf),
-            "-preset", "medium", "-c:a", "copy",
+            *self._encode_args(), "-c:a", "copy",
             str(Path(output_path)),
         ])
         if result["success"]:
@@ -358,13 +475,11 @@ class FFmpegTool:
             filters.append(f"fade=t=out:st={duration - fade_out}:d={fade_out}")
 
         if not filters:
-            shutil.copy2(video_path, output_path)
-            return {"success": True, "output_path": str(Path(output_path).resolve())}
+            return {"success": True, "output_path": str(Path(video_path).resolve())}
 
         result = self._run([
             "-i", str(Path(video_path)), "-vf", ",".join(filters),
-            "-c:v", settings.output_codec, "-crf", str(settings.output_crf),
-            "-preset", "medium", "-c:a", "copy",
+            *self._encode_args(), "-c:a", "copy",
             str(Path(output_path)),
         ])
         if result["success"]:
