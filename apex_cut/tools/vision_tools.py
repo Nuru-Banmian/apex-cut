@@ -50,32 +50,9 @@ def _encode_image(image_path: str, max_px: int = 0) -> str:
 # ═══════════════════════════════════════════════════════════════
 
 VISION_APEX_SYSTEM = """你是 Apex Legends 游戏画面数据提取器。
-唯一任务：**读取 UI 上的数字和文字**，不做画面描述。
+唯一任务：**读取 UI 上的数字**，不做画面描述。
 
-# 两个数据源
-
-## ★ 数据源一（最可靠）：准星下方 — 击倒/击杀/团灭 弹字提示 ★
-位置：准星正下方，画面中央偏下区域
-这是你**本人**造成的击杀事件的实时弹字提示，文字较大，非常醒目。
-
-可能出现的文字：
-- **"击倒"** — 你击倒了敌人
-- **"击杀"** — 你消灭了敌人
-- **"团灭"** — 你消灭了敌方全队（最高价值）
-- 有时带数字前缀如 "3 击杀" 表示连杀
-
-文字通常停留 1-3 秒后消失。出现弹字 = 事件发生的铁证。
-
-读出：
-{
-  "center_notification": {
-    "type": "knock|kill|squad_wipe|none",
-    "text": "实际看到的文字",
-    "visible": true/false
-  }
-}
-
-## 数据源二：最右上角 — 玩家数据面板
+## 最右上角 — 玩家数据面板
 位置：画面最右上角的一小块区域
 **横向排列**，从左到右依次是：
 
@@ -122,12 +99,10 @@ VISION_APEX_SYSTEM = """你是 Apex Legends 游戏画面数据提取器。
 {"frames": [
   {
     "frame": 1,
-    "center_notification": {"type": "none", "text": "", "visible": false},
     "player_stats": {"kills": null, "assists": null, "team_kills": null, "damage": null}
   },
   {
     "frame": 2,
-    "center_notification": {"type": "knock", "text": "击倒", "visible": true},
     "player_stats": {"kills": 3, "assists": 1, "team_kills": 4, "damage": 567}
   }
 ]}
@@ -135,16 +110,13 @@ VISION_APEX_SYSTEM = """你是 Apex Legends 游戏画面数据提取器。
 # 规则
 1. 有几张图就输出几个 frame 对象，放 frames 数组里
 2. 数字看不清填 null，不要猜
-3. 弹字优先 — 出现弹字 = 事件铁证
-4. 右上角面板从左到右读取数字
-5. 只返回 JSON，不要任何额外文字"""
+3. 右上角面板从左到右读取数字
+4. 只返回 JSON，不要任何额外文字"""
 
 
 VISION_APEX_HUMAN = """以下是 {frame_count} 帧 Apex Legends 画面（第 {chunk_start}-{chunk_end} 帧）。
 
-逐帧读取两个数据源：
-1. ★ 准星下方 → 击倒/击杀/团灭 弹字
-2. 最右上角（横向排列）→ 人头、助攻、小队击杀、伤害数字
+逐帧读取右上角面板数据：人头、助攻、小队击杀、伤害数字。
 
 只返回 JSON。"""
 
@@ -406,7 +378,7 @@ def classify_frames_apex(
     sample_count: int = 20,
     chunk_size: int = 10,
 ) -> dict:
-    """Apex Legends 专用：逐帧读取 UI 数据（弹字+右上角面板），代码检测战斗事件.
+    """Apex Legends 专用：逐帧读取右上角面板数字，代码检测战斗事件.
 
     Args:
         frame_dir: 抽帧图片目录
@@ -414,8 +386,7 @@ def classify_frames_apex(
         chunk_size: 每批帧数（建议 8-12，读数需要精度）
 
     Returns:
-        {success, frame_labels: [{frame, time_seconds, center_notification,
-          player_stats, _changes, _event}], frame_count}
+        {success, frame_labels: [{frame, time_seconds, player_stats, _changes, _event}], frame_count}
     """
     from langchain_core.messages import HumanMessage
 
@@ -503,7 +474,6 @@ def classify_frames_apex(
                     all_labels.append({
                         "frame": frame_num,
                         "time_seconds": 0.0,
-                        "center_notification": item.get("center_notification", {}),
                         "player_stats": item.get("player_stats", {}),
                     })
 
@@ -538,7 +508,6 @@ def classify_frames_apex(
                         frame_num = int(fpath.stem.split("_")[-1])
                         all_labels.append({
                             "frame": frame_num, "time_seconds": 0.0,
-                            "center_notification": item.get("center_notification", {}),
                             "player_stats": item.get("player_stats", {}),
                         })
                 msg = f"  ✅ 批次 {chunk_num}/{total_chunks} 重试成功 ({len(raw_frames2)} 帧)"
@@ -550,7 +519,7 @@ def classify_frames_apex(
                     frame_num = int(fpath.stem.split("_")[-1])
                     all_labels.append({
                         "frame": frame_num, "time_seconds": 0.0,
-                        "center_notification": {}, "player_stats": {},
+                        "player_stats": {},
                         
                     })
         except Exception as e:
@@ -560,8 +529,7 @@ def classify_frames_apex(
                 frame_num = int(fpath.stem.split("_")[-1])
                 all_labels.append({
                     "frame": frame_num, "time_seconds": 0.0,
-                    "center_notification": {}, "player_stats": {},
-                    
+                    "player_stats": {},
                 })
 
         # 更新百分比进度
@@ -571,20 +539,15 @@ def classify_frames_apex(
     all_labels.sort(key=lambda x: x["frame"])
 
     # ── 时间戳修正 ──
-    if total_frames > 0:
-        all_labels = _fix_frame_timestamps(all_labels, total_frames)
-
     # ── ★ 核心：检测战斗事件（只加 _changes / _event，不做 action 判断）──
     all_labels = detect_combat_events(all_labels)
 
     # ── 统计 ──
     combat_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("in_combat"))
     kill_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("kill_occurred"))
-    squad_wipe_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("squad_wipe_occurred"))
-
     msg = (
         f"  🎉 完成: {len(all_labels)} 帧 | "
-        f"战斗={combat_frames} 击杀={kill_frames} 团灭={squad_wipe_frames}"
+        f"战斗={combat_frames} 击杀={kill_frames}"
     )
     print(msg); emit_progress(msg)
 
@@ -593,18 +556,6 @@ def classify_frames_apex(
         "frame_labels": all_labels,
         "frame_count": len(all_labels),
     }
-
-
-def _fix_frame_timestamps(labels: list[dict], total_frames: int) -> list[dict]:
-    """根据帧序号和总帧数推算时间戳."""
-    if total_frames <= 1:
-        for l in labels:
-            l["time_seconds"] = 0.0
-        return labels
-    for l in labels:
-        frame_num = l.get("frame", 0)
-        l["time_seconds"] = round(frame_num / total_frames * 60.0, 1)  # 先给个估计值
-    return labels
 
 
 # 导出

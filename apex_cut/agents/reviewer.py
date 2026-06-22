@@ -69,7 +69,7 @@ REVIEW_LLM_SYSTEM = """你是 Apex Legends 剪辑质检员。
 ## ⚠️ 你能看到的数据
 每个片段只有: start, end, events 列表, score。
 已知 events: kill(击杀), assist(助攻), combat(交火)。
-你**看不到**场景类型。不要猜测或编造"舔包""跑图""选人""跳伞""squad_wipe""knock"。
+你**看不到**场景类型。不要猜测或编造"舔包""跑图""选人""跳伞"。
 
 ## ★ 重要：长片段是正常的
 当多个击杀发生在短时间内，Editor 会把它们合并成一个长片段。

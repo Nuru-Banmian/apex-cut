@@ -282,7 +282,6 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                 all_labels.append({
                     "frame": actual_fn,
                     "time_seconds": round((actual_fn - 1) * interval, 1),
-                    "center_notification": {},
                     "player_stats": {
                         "kills": ps.get("kills") if ps.get("kills") is not None else item.get("kills"),
                         "assists": ps.get("assists") if ps.get("assists") is not None else item.get("assists"),
@@ -315,7 +314,6 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                     ps = item.get("player_stats") or {}
                     all_labels.append({
                         "frame": actual_fn, "time_seconds": round((actual_fn - 1) * interval, 1),
-                        "center_notification": {},
                         "player_stats": {
                             "kills": ps.get("kills") if ps.get("kills") is not None else item.get("kills"),
                             "assists": ps.get("assists") if ps.get("assists") is not None else item.get("assists"),
@@ -340,7 +338,6 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                 all_labels.append({
                     "frame": fn,
                     "time_seconds": round((fn - 1) * interval, 1),
-                    "center_notification": {},
                     "player_stats": {"kills": None, "assists": None, "team_kills": None, "damage": None},
                 })
                 missed += 1

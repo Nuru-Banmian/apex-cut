@@ -388,12 +388,12 @@ def editor_node(state: VideoEditState) -> dict:
 def _apply_review_feedback(segments: list[dict], suggestions: str, issues: list[str],
                            duration: float) -> list[dict]:
     """尝试根据 Reviewer 反馈微调片段（简单规则，不用 LLM）."""
+    remove_indices = set()
     for issue in issues:
-        # 尝试解析 "[遗漏] 15.3s kill: ..." 格式
-        match = re.search(r'(\d+\.?\d*)s', str(issue))
-        if match:
-            missing_time = float(match.group(1))
-            # 扩展最近片段或创建新片段
+        # ── [遗漏] 15.3s kill: ... → 扩展最近片段去覆盖 ──
+        time_match = re.search(r'(\d+\.?\d*)s', str(issue))
+        if time_match and issue.startswith("[遗漏]"):
+            missing_time = float(time_match.group(1))
             closest = None
             for seg in segments:
                 mid = (seg["start"] + seg["end"]) / 2
@@ -403,6 +403,16 @@ def _apply_review_feedback(segments: list[dict], suggestions: str, issues: list[
                 closest["start"] = min(closest["start"], max(0, missing_time - 20))
                 closest["end"] = max(closest["end"], min(duration, missing_time + 20))
                 print(f"  🔧 扩展片段覆盖遗漏点 {missing_time}s")
+        # ── [误判] 片段 3: ... → 删除对应片段 ──
+        if issue.startswith("[误判]"):
+            seg_match = re.search(r'片段\s*(\d+)', str(issue))
+            if seg_match:
+                idx = int(seg_match.group(1)) - 1  # 1-based → 0-based
+                if 0 <= idx < len(segments):
+                    remove_indices.add(idx)
+                    print(f"  🗑️ 移除误判片段 [{idx+1}] {segments[idx]['start']:.0f}s-{segments[idx]['end']:.0f}s")
+    if remove_indices:
+        segments = [s for i, s in enumerate(segments) if i not in remove_indices]
     return segments
 
 

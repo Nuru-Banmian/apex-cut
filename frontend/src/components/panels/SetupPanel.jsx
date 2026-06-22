@@ -45,9 +45,9 @@ export default function SetupPanel({
     order: 'chronological',
     trim_strategy: 'cut_lowest_priority',
     priority_weights: {
+      damage_dealt: 5,
       kill_occurred: 5,
-      assist_occurred: 3,
-      damage_dealt: 1,
+      assist_occurred: 2,
     },
   })
 
