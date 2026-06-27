@@ -24,7 +24,7 @@ class ErrorBoundary extends Component {
           color: 'var(--text-primary)',
         }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}>💥</div>
+            <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}></div>
             <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-2)' }}>
               页面出错了
             </div>
@@ -44,7 +44,7 @@ class ErrorBoundary extends Component {
                 fontFamily: 'inherit',
               }}
             >
-              🔄 刷新页面
+               刷新页面
             </button>
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function App() {
         if (data.status === 'done') {
           es.close()
           sseRef.current = null
-          setDownloadUrl(`/api/tasks/${tid}/download`)  // ★ 先设 URL，再切 phase，避免闪烁源视频
+          setDownloadUrl(`/api/tasks/${tid}/download`)  //  先设 URL，再切 phase，避免闪烁源视频
           setTaskStatus('done')
           fetchResult()
         } else if (data.status === 'failed') {

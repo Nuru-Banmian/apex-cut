@@ -159,7 +159,7 @@ export default function SetupPanel({
                 transition: 'all var(--transition-fast)',
               }}
             >
-              {tab === 'upload' ? '📤 上传' : tab === 'library' ? '📂 素材库' : '📦 结果'}
+              {tab === 'upload' ? ' 上传' : tab === 'library' ? ' 素材库' : ' 结果'}
             </button>
           ))}
         </div>
@@ -182,7 +182,7 @@ export default function SetupPanel({
               }}
             >
               <div style={{ fontSize: 32, marginBottom: 'var(--space-2)' }}>
-                {uploading ? '⏳' : '📤'}
+                {uploading ? '' : ''}
               </div>
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
                 {uploading ? '上传中...' : '点击或拖拽上传视频'}
@@ -234,7 +234,7 @@ export default function SetupPanel({
                 color: 'var(--text-tertiary)',
                 fontSize: 'var(--text-sm)',
               }}>
-                📭 暂无素材
+                 暂无素材
               </div>
             ) : (
               materials.map(mat => {
@@ -313,7 +313,7 @@ export default function SetupPanel({
                       onMouseEnter={e => e.currentTarget.style.opacity = 1}
                       onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
                     >
-                      ✏️
+                      ️
                     </button>
                   )}
                 </div>
@@ -342,7 +342,7 @@ export default function SetupPanel({
             alignItems: 'center',
             gap: 'var(--space-1)',
           }}>
-            <span>✅</span> 已选择: {fileName}
+            <span></span> 已选择: {fileName}
           </div>
         )}
       </div>
@@ -357,7 +357,7 @@ export default function SetupPanel({
           fontWeight: 'var(--font-semibold)',
           marginBottom: 'var(--space-3)',
         }}>
-          ⚙️ 融合策略
+          ️ 融合策略
         </div>
         <div style={{
           padding: 'var(--space-3)',
@@ -397,7 +397,7 @@ export default function SetupPanel({
       {/* 输出命名 */}
       <div style={{ marginBottom: 'var(--space-3)' }}>
         <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
-          📦 输出文件名（可选）
+           输出文件名（可选）
         </label>
         <input
           value={outputName}
@@ -428,7 +428,7 @@ export default function SetupPanel({
             opacity: (!keyVerified || !videoPath) ? 0.5 : 1,
           }}
         >
-          🚀 开始剪辑
+           开始剪辑
         </button>
       )}
 

@@ -30,7 +30,7 @@ from apex_cut.tools.vision_tools import detect_combat_events
 from apex_cut.sse import emit_progress, emit_progress_overwrite, emit_status
 from apex_cut.cache import save_cache
 
-# ★ 裁图参数 — 百分比，适配所有分辨率
+#  裁图参数 — 百分比，适配所有分辨率
 # 右上角统计面板：右起 20%，顶起 10%
 _STATS_LEFT_PCT  = 0.72   # 面板左边界（比赛信息在 72-96%，统计在更下方 8-14%）
 _STATS_TOP_PCT   = 0.08   # 面板上边界（跳过顶部比赛信息"剩余小队"等）
@@ -52,14 +52,14 @@ def analyzer_node(state: VideoEditState) -> dict:
         return {"error": "未提供视频路径"}
 
     print(f"\n{'='*60}")
-    print(f"[🔍 Apex 数据采集] {Path(video_path).name}")
+    print(f"[ Apex 数据采集] {Path(video_path).name}")
     print(f"{'='*60}")
 
     # ── 视频元信息 ──
-    emit_status("🔍 解析视频信息...")
+    emit_status(" 解析视频信息...")
     probe = _call_probe(video_path)
     duration = probe.get("duration", 0) if probe else 0
-    print(f"  📹 {duration:.0f}s, {probe.get('width',0)}x{probe.get('height',0)}" if probe else "  ⚠️ probe 失败")
+    print(f"   {duration:.0f}s, {probe.get('width',0)}x{probe.get('height',0)}" if probe else "  ️ probe 失败")
 
     # ── 抽帧参数 ──
     fi = state.get("frame_interval", 0) or 0
@@ -71,16 +71,16 @@ def analyzer_node(state: VideoEditState) -> dict:
     # ═════════════════════════════════════════════════════════
     # Step 1: 抽帧
     # ═════════════════════════════════════════════════════════
-    emit_status(f"🔍 抽帧中 (间隔 {interval}s, ~{estimated} 张)...")
+    emit_status(f" 抽帧中 (间隔 {interval}s, ~{estimated} 张)...")
 
     tool = get_ffmpeg()
     try:
         r = tool.extract_frames(video_path, interval, frame_dir, estimated)
         frame_count = r.get("frame_count", 0) if r.get("success") else 0
-        print(f"  🖼️  抽帧: {frame_count} 张")
+        print(f"  ️  抽帧: {frame_count} 张")
     except Exception as e:
         frame_count = 0
-        print(f"  🖼️  抽帧异常: {e}")
+        print(f"  ️  抽帧异常: {e}")
 
     # ═════════════════════════════════════════════════════════
     # Step 2: 视觉 LLM 读取 UI 数据
@@ -93,18 +93,18 @@ def analyzer_node(state: VideoEditState) -> dict:
     sample_count = len(frame_files) if max_vis == 0 else min(len(frame_files), max_vis)
 
     if frame_files and vision_key:
-        print(f"\n  👁️  Apex 数据提取: {sample_count} 帧 (共 {len(frame_files)} 帧)")
-        emit_status("👁️ 读取 UI 数据... 0%")
+        print(f"\n  ️  Apex 数据提取: {sample_count} 帧 (共 {len(frame_files)} 帧)")
+        emit_status("️ 读取 UI 数据... 0%")
 
         try:
             frame_labels = _run_vision_analysis(frame_files, sample_count, interval, vision_key, state)
             frame_labels.sort(key=lambda f: f["frame"])
         except Exception as e:
-            print(f"  ❌ 视觉分析异常: {e}")
+            print(f"   视觉分析异常: {e}")
             frame_labels = []
     else:
         if not vision_key:
-            print(f"  ⏭️  无视觉 Key，跳过")
+            print(f"  ️  无视觉 Key，跳过")
         frame_labels = []
 
     # ═════════════════════════════════════════════════════════
@@ -113,7 +113,7 @@ def analyzer_node(state: VideoEditState) -> dict:
     combat = sum(1 for f in frame_labels if f.get("_changes", {}).get("in_combat"))
     kills = sum(1 for f in frame_labels if f.get("_changes", {}).get("kill_occurred"))
     assists = sum(1 for f in frame_labels if f.get("_changes", {}).get("assist_occurred"))
-    print(f"  📊 {len(frame_labels)} 帧 | 战斗={combat} 击杀={kills} 助攻={assists}")
+    print(f"   {len(frame_labels)} 帧 | 战斗={combat} 击杀={kills} 助攻={assists}")
 
     if frame_labels or probe:
         save_cache(video_path, {
@@ -121,8 +121,8 @@ def analyzer_node(state: VideoEditState) -> dict:
             "frame_labels": frame_labels,
         }, frame_interval=interval, max_vision_frames=max_vis)
 
-    print(f"{'='*60}\n[🔍] 完成: {len(frame_labels)}帧标签\n{'='*60}")
-    emit_status(f"✅ 数据采集完成 ({len(frame_labels)} 帧标签)")
+    print(f"{'='*60}\n[] 完成: {len(frame_labels)}帧标签\n{'='*60}")
+    emit_status(f" 数据采集完成 ({len(frame_labels)} 帧标签)")
 
     return {"frame_labels": frame_labels}
 
@@ -136,7 +136,7 @@ def _crop_stats_panel(image_path: str) -> str | None:
 
     裁图区域（百分比，适配所有分辨率）：
       ┌─────────────────────────┬──┐
-      │                         │🔢│ ← 右 20% × 上 10%
+      │                         ││ ← 右 20% × 上 10%
       │                         │  │   人头 助攻 [小队击杀] 伤害
       │       主画面             │  │
       │                         │  │
@@ -155,11 +155,11 @@ def _crop_stats_panel(image_path: str) -> str | None:
         crop.save(buf, format="JPEG", quality=85)
         return base64.b64encode(buf.getvalue()).decode("utf-8")
     except Exception as e:
-        print(f"  ⚠️ 裁图失败 {image_path}: {e}")
+        print(f"  ️ 裁图失败 {image_path}: {e}")
         return None
 
 
-# ★ 裁图后提示词 — LLM 只看统计面板裁图，格式兼容新旧两种
+#  裁图后提示词 — LLM 只看统计面板裁图，格式兼容新旧两种
 STATS_SYSTEM = """你是 Apex Legends 个人统计面板数据读取器。
 每张裁图是面板特写（3个横排数字: kills | assists | damage）。
 * 非排位只有3个数字；排位有4个（多一个team_kills在assists和damage之间）
@@ -193,7 +193,7 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
             runtime_model=state.get("runtime_vision_model", "") or _get_runtime_vision_model(),
         )
     except Exception as e:
-        print(f"  ❌ LLM 初始化失败: {e}")
+        print(f"   LLM 初始化失败: {e}")
         return []
 
     all_labels = []
@@ -225,8 +225,8 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
             fn = int(fpath.stem.split("_")[-1])
 
         pct = round(chunk_num / total_chunks * 100)
-        emit_status(f"👁️ 读取伤害数据... {pct}%")
-        msg = f"  📤 批次 {chunk_num}/{total_chunks} ({first_fn}-{last_fn} 帧, {chunk_kb/1024:.0f}KB)..."
+        emit_status(f"️ 读取伤害数据... {pct}%")
+        msg = f"   批次 {chunk_num}/{total_chunks} ({first_fn}-{last_fn} 帧, {chunk_kb/1024:.0f}KB)..."
         print(f"\r{msg}", end="", flush=True)
         emit_progress_overwrite(msg)
 
@@ -249,9 +249,9 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                 elif isinstance(result, dict) and "frame" in result:
                     raw_frames = [result]
 
-            # ★ 空响应重试一次
+            #  空响应重试一次
             if not raw_frames:
-                print(f"\r  ⚠️ 批次 {chunk_num} 空响应，重试...")
+                print(f"\r  ️ 批次 {chunk_num} 空响应，重试...")
                 try:
                     resp2 = llm.invoke([HumanMessage(content=[
                         {"type": "text", "text": "上次返回为空。请严格返回 JSON：{\"frames\": [...]}"},
@@ -292,7 +292,7 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                 filled.add(actual_fn)
 
         except json.JSONDecodeError:
-            print(f"\r  ⚠️ 批次 {chunk_num} JSON 异常，重试...")
+            print(f"\r  ️ 批次 {chunk_num} JSON 异常，重试...")
             try:
                 retry_content = [{"type": "text", "text": "上轮格式有误。严格只返回 JSON：{\"frames\": [...]}"}]
                 retry_content.extend(content_parts[1:])
@@ -323,14 +323,14 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
                     })
                     filled.add(actual_fn)
                 raw_frames = raw_frames2
-                print(f"\r  ✅ 批次 {chunk_num} 重试成功 ({len(raw_frames2)} 帧)")
+                print(f"\r   批次 {chunk_num} 重试成功 ({len(raw_frames2)} 帧)")
             except Exception:
-                print(f"\r  ❌ 批次 {chunk_num} 重试也失败")
+                print(f"\r   批次 {chunk_num} 重试也失败")
 
         except Exception as e:
-            print(f"\r  ❌ 批次 {chunk_num} 失败: {e}")
+            print(f"\r   批次 {chunk_num} 失败: {e}")
 
-        # ★ 补全 LLM 漏掉的帧
+        #  补全 LLM 漏掉的帧
         missed = 0
         for fpath in chunk:
             fn = int(fpath.stem.split("_")[-1])
@@ -344,15 +344,15 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
 
         tag = f"{len(raw_frames)}帧"
         if missed: tag += f", +{missed}补空"
-        print(f"\r  ✅ 批次 {chunk_num}/{total_chunks} ({tag})" + " " * 20)
-        emit_progress_overwrite(f"  ✅ 批次 {chunk_num}/{total_chunks} ({tag})")
+        print(f"\r   批次 {chunk_num}/{total_chunks} ({tag})" + " " * 20)
+        emit_progress_overwrite(f"   批次 {chunk_num}/{total_chunks} ({tag})")
 
-    # ★ 比较相邻帧数字变化 → 检测战斗事件
+    #  比较相邻帧数字变化 → 检测战斗事件
     all_labels.sort(key=lambda f: f["frame"])
     try:
         all_labels = detect_combat_events(all_labels)
     except Exception as e:
-        print(f"  ⚠️ detect_combat_events 异常: {e}")
+        print(f"  ️ detect_combat_events 异常: {e}")
 
     return all_labels
 
@@ -362,8 +362,8 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
 # ═══════════════════════════════════════════════════════════════
 
 def _auto_interval(duration: float) -> float:
-    """默认抽帧间隔 — 固定 1s（前端高级设置可覆盖）."""
-    return 1.0
+    """默认抽帧间隔 — 固定 2s（前端高级设置可覆盖）."""
+    return 2.0
 
 
 def _fallback_vision_key(state: dict) -> str:

@@ -30,7 +30,7 @@ class VideoEditState(TypedDict, total=False):
     editing_notes: str                # 导演的剪辑要点（供下游参考）
     review_criteria: list[dict]       # 审核验收标准 [{check, pass_condition}]
     editing_constraints: dict         # 结构化剪辑约束 {hard:[], soft:[], rhythm, must_keep:[], must_remove:[]}
-    # ★ 核心新增：可执行片段策略（Director 翻译用户意图 → Editor 机械执行）
+    #  核心新增：可执行片段策略（Director 翻译用户意图 → Editor 机械执行）
     segment_strategy: dict            # {triggers, min_damage, padding_before, padding_after, merge_gap, min_segment, exclude_scenes, order, trim_strategy, priority_weights}
 
     # ── 运行时 API Key（前端传入，仅在内存中，不落盘） ──
@@ -52,7 +52,7 @@ class VideoEditState(TypedDict, total=False):
 
     # ── 分析阶段产出 ──
     frame_descriptions: list[dict] # [{frame, time_seconds, description}]  (deprecated: 被 frame_labels 取代)
-    # ★ 分析阶段产出（只采集原始数据，不做决策）
+    #  分析阶段产出（只采集原始数据，不做决策）
     frame_labels: list[dict]       # [{frame, time_seconds, player_stats, _changes, _event}]
     # (deprecated) 以下字段保留兼容但不再使用
     segment_classifications: list[dict]

@@ -19,7 +19,7 @@ export default function TopBar({ gpuStatus, onSettings }) {
           fontWeight: 'var(--font-semibold)',
           letterSpacing: '-0.3px',
         }}>
-          🎬 AutoCut
+           AutoCut
         </span>
         <span style={{
           fontSize: 'var(--text-xs)',
@@ -67,7 +67,7 @@ export default function TopBar({ gpuStatus, onSettings }) {
           }}
           title="设置"
         >
-          ⚙
+          
         </button>
       </div>
     </header>

@@ -3,9 +3,9 @@ import ProgressPanel from './panels/ProgressPanel'
 import ResultPanel from './panels/ResultPanel'
 
 const PHASE_META = {
-  setup:      { icon: '📹', title: '准备素材' },
-  processing: { icon: '⚡', title: '处理中' },
-  result:     { icon: '✅', title: '剪辑结果' },
+  setup:      { icon: '', title: '准备素材' },
+  processing: { icon: '', title: '处理中' },
+  result:     { icon: '', title: '剪辑结果' },
 }
 
 export default function SidePanel({ phase, ...panelProps }) {

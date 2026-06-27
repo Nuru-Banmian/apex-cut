@@ -48,7 +48,7 @@ def cmd_serve(args):
 
     register_routes(app)
 
-    print(f"\n🎬 AutoCut Agent API 启动中...")
+    print(f"\n AutoCut Agent API 启动中...")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   文档: http://localhost:{args.port}/docs\n")
 
@@ -59,7 +59,7 @@ def cmd_run(args):
     """命令行直接运行剪辑任务."""
     from apex_cut.workflow import run_editing_task
 
-    print("\n🎬 AutoCut Agent — 命令行模式\n")
+    print("\n AutoCut Agent — 命令行模式\n")
     print(f"   视频: {args.video}")
     print(f"   需求: {args.requirement}")
     if args.duration:
@@ -76,10 +76,10 @@ def cmd_run(args):
     )
 
     print("\n" + "=" * 60)
-    print("📊 剪辑结果")
+    print(" 剪辑结果")
     print("=" * 60)
     print(f"  审核评分: {result.get('review_score', 'N/A')}/100")
-    print(f"  审核通过: {'✅ 是' if result.get('review_approved') else '❌ 否'}")
+    print(f"  审核通过: {' 是' if result.get('review_approved') else ' 否'}")
     print(f"  审核轮次: {result.get('review_round', 0)}")
     if result.get("review_issues"):
         print("  问题列表:")
@@ -88,7 +88,7 @@ def cmd_run(args):
     if result.get("final_output"):
         print(f"  输出文件: {result['final_output']}")
     if result.get("error"):
-        print(f"  ❌ 错误: {result['error']}")
+        print(f"   错误: {result['error']}")
     print("=" * 60 + "\n")
 
 

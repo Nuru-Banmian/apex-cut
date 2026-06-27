@@ -63,16 +63,16 @@ def has_cache(video_path: str, frame_interval: float = 0, max_vision_frames: int
             stat = p.stat()
             if (meta.get("video_size") != stat.st_size or
                 meta.get("video_mtime") != stat.st_mtime):
-                print(f"[📦 缓存] ⚠️ 视频已变更，缓存失效")
+                print(f"[ 缓存] ️ 视频已变更，缓存失效")
                 return False
         # 参数匹配：抽帧间隔或最大帧数变了 → 缓存不适用
         cached_interval = meta.get("frame_interval", 0)
         cached_max_frames = meta.get("max_vision_frames", 0)
         if (frame_interval > 0 and cached_interval > 0 and abs(frame_interval - cached_interval) > 0.01):
-            print(f"[📦 缓存] ⚠️ 抽帧间隔已变 ({cached_interval}s → {frame_interval}s)，缓存失效")
+            print(f"[ 缓存] ️ 抽帧间隔已变 ({cached_interval}s → {frame_interval}s)，缓存失效")
             return False
         if (max_vision_frames > 0 and cached_max_frames > 0 and max_vision_frames != cached_max_frames):
-            print(f"[📦 缓存] ⚠️ 最大帧数已变 ({cached_max_frames} → {max_vision_frames})，缓存失效")
+            print(f"[ 缓存] ️ 最大帧数已变 ({cached_max_frames} → {max_vision_frames})，缓存失效")
             return False
     except Exception:
         return False
@@ -93,12 +93,12 @@ def load_cache(video_path: str) -> dict | None:
         with open(meta_file, "r", encoding="utf-8") as f:
             meta = json.load(f)
     except Exception as e:
-        print(f"[📦 缓存] ⚠️ meta.json 损坏: {e}")
+        print(f"[ 缓存] ️ meta.json 损坏: {e}")
         return None
 
     # 检查版本兼容
     if meta.get("version", 0) != CACHE_VERSION:
-        print(f"[📦 缓存] ⚠️ 缓存版本不兼容 (v{meta.get('version')} → v{CACHE_VERSION})")
+        print(f"[ 缓存] ️ 缓存版本不兼容 (v{meta.get('version')} → v{CACHE_VERSION})")
         return None
 
     data = {}
@@ -115,18 +115,18 @@ def load_cache(video_path: str) -> dict | None:
                 data[field] = content
                 loaded_files.append(filename)
             except Exception as e:
-                print(f"[📦 缓存] ⚠️ {filename} 损坏: {e}")
+                print(f"[ 缓存] ️ {filename} 损坏: {e}")
                 missing_files.append(filename)
         else:
             missing_files.append(filename)
 
     if loaded_files:
         size_mb = sum((cache_dir / f).stat().st_size for f in set(loaded_files)) / 1048576
-        print(f"[📦 缓存] ✅ 命中 {len(loaded_files)} 个文件 ({size_mb:.1f}MB)" +
+        print(f"[ 缓存]  命中 {len(loaded_files)} 个文件 ({size_mb:.1f}MB)" +
               (f" | 缺失: {missing_files}" if missing_files else ""))
         return data
 
-    print(f"[📦 缓存] ⚠️ 无可用缓存文件")
+    print(f"[ 缓存] ️ 无可用缓存文件")
     return None
 
 
@@ -166,7 +166,7 @@ def save_cache(video_path: str, data: dict, frame_interval: float = 0, max_visio
                 json.dump(payload, f, ensure_ascii=False, default=str)
             saved_files[filename] = filepath.stat().st_size
         except Exception as e:
-            print(f"[📦 缓存] ⚠️ {filename} 写入失败: {e}")
+            print(f"[ 缓存] ️ {filename} 写入失败: {e}")
 
     # meta.json 最后写入（作为"缓存完成"的信号）
     meta = {
@@ -183,9 +183,9 @@ def save_cache(video_path: str, data: dict, frame_interval: float = 0, max_visio
         with open(cache_dir / "meta.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, default=str)
         total_kb = sum(saved_files.values()) / 1024
-        print(f"[📦 缓存] 💾 已保存 {len(saved_files)} 个文件 ({total_kb:.0f}KB) → {cache_dir}")
+        print(f"[ 缓存]  已保存 {len(saved_files)} 个文件 ({total_kb:.0f}KB) → {cache_dir}")
     except Exception as e:
-        print(f"[📦 缓存] ⚠️ meta.json 写入失败: {e}")
+        print(f"[ 缓存] ️ meta.json 写入失败: {e}")
 
 
 def delete_cache(video_path: str) -> bool:
@@ -193,7 +193,7 @@ def delete_cache(video_path: str) -> bool:
     cache_dir = Path(str(Path(video_path).resolve()) + ".apexcut")
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
-        print(f"[📦 缓存] 🗑️ 已删除: {cache_dir}")
+        print(f"[ 缓存] ️ 已删除: {cache_dir}")
         return True
     return False
 
@@ -221,10 +221,10 @@ def rename_cache(old_path: str, new_path: str) -> bool:
 
         # 重命名缓存目录
         old_cache.rename(new_cache)
-        print(f"[📦 缓存] 📝 已同步重命名: {old_cache.name} → {new_cache.name}")
+        print(f"[ 缓存]  已同步重命名: {old_cache.name} → {new_cache.name}")
         return True
     except Exception as e:
-        print(f"[📦 缓存] ⚠️ 重命名失败: {e}")
+        print(f"[ 缓存] ️ 重命名失败: {e}")
         return False
 
 

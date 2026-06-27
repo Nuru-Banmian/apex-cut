@@ -38,7 +38,7 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
                 fontSize: 'var(--text-sm)',
                 fontWeight: isSelected ? 'var(--font-medium)' : 'var(--font-normal)',
               }} className="truncate">
-                🎬 {r.filename}
+                 {r.filename}
               </div>
               <div style={{
                 fontSize: 'var(--text-xs)',
@@ -66,7 +66,7 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
               onMouseEnter={e => e.currentTarget.style.opacity = 1}
               onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
             >
-              📥
+              
             </a>
           </div>
         )

@@ -243,11 +243,11 @@ def _annotate_segments(segments: list[dict], state: dict) -> tuple[list[dict], s
                 events = seg.get("events", [])
                 seg["reason"] = _default_reason(events)
 
-        print(f"[✂️ 剪辑] LLM 润色: {len(annotations)}/{len(segments)} 个片段, {summary[:80]}")
+        print(f"[️ 剪辑] LLM 润色: {len(annotations)}/{len(segments)} 个片段, {summary[:80]}")
         return segments, summary
 
     except Exception as e:
-        print(f"[✂️ 剪辑] LLM 润色失败（不影响裁剪）: {e}")
+        print(f"[️ 剪辑] LLM 润色失败（不影响裁剪）: {e}")
         # 回退：用默认 reason
         for seg in segments:
             if not seg.get("reason"):
@@ -288,10 +288,10 @@ def editor_node(state: VideoEditState) -> dict:
     # ═════════════════════════════════════════════════════════
     if plan_approved or force_cut:
         if force_cut and not plan_approved:
-            msg = "✂️ 超过最大轮次，强制裁剪..."
+            msg = "️ 超过最大轮次，强制裁剪..."
         else:
-            msg = "✂️ 方案通过，执行裁剪..."
-        print(f"\n[✂️ 剪辑] {msg}")
+            msg = "️ 方案通过，执行裁剪..."
+        print(f"\n[️ 剪辑] {msg}")
         emit_status(msg)
         emit_progress(msg)
 
@@ -299,7 +299,7 @@ def editor_node(state: VideoEditState) -> dict:
         target_ar = state.get("target_aspect_ratio")
 
         if not edit_plan:
-            print(f"[✂️ 剪辑] ⚠️ 无方案，回退原视频")
+            print(f"[️ 剪辑] ️ 无方案，回退原视频")
             return {"final_output": video_path, "plan_approved": True}
 
         output_name = state.get("output_name", "")
@@ -310,10 +310,10 @@ def editor_node(state: VideoEditState) -> dict:
     # ═════════════════════════════════════════════════════════
     # 方案模式 — 规则引擎 + LLM 润色
     # ═════════════════════════════════════════════════════════
-    print(f"\n[✂️ 剪辑] 第 {review_round + 1} 轮 — 规则引擎生成方案")
-    print(f"[✂️ 剪辑] 需求: {requirement[:120]}")
-    emit_status(f"✂️ 分析战斗数据... (第{review_round + 1}轮)")
-    emit_progress(f"━━━ ✂️ 剪辑 Agent 第 {review_round + 1} 轮 ━━━")
+    print(f"\n[️ 剪辑] 第 {review_round + 1} 轮 — 规则引擎生成方案")
+    print(f"[️ 剪辑] 需求: {requirement[:120]}")
+    emit_status(f"️ 分析战斗数据... (第{review_round + 1}轮)")
+    emit_progress(f"━━━ ️ 剪辑 Agent 第 {review_round + 1} 轮 ━━━")
 
     probe_info = _get_video_info(video_path)
     total_duration = probe_info["duration"] if probe_info else 0
@@ -322,7 +322,7 @@ def editor_node(state: VideoEditState) -> dict:
     frame_labels = state.get("frame_labels", [])
 
     if not frame_labels:
-        print(f"[✂️ 剪辑] ⚠️ 无 frame_labels，回退全片")
+        print(f"[️ 剪辑] ️ 无 frame_labels，回退全片")
         return {
             "edit_plan": [{"start": 0, "end": total_duration, "reason": "无数据，保留全片", "score": 0, "events": []}],
             "review_round": review_round + 1,
@@ -335,7 +335,7 @@ def editor_node(state: VideoEditState) -> dict:
 
     # ── 规则引擎：确定片段边界 ──
     segments = _rule_based_segments(frame_labels, total_duration, strategy)
-    print(f"[✂️ 剪辑] 规则引擎: {len(segments)} 段")
+    print(f"[️ 剪辑] 规则引擎: {len(segments)} 段")
 
     # ── LLM 润色：写 reason + summary（首轮执行，后续跳过以省 token）──
     if review_round == 0:
@@ -347,7 +347,7 @@ def editor_node(state: VideoEditState) -> dict:
     suggestions = state.get("review_suggestions", "")
     issues = state.get("review_issues", [])
     if suggestions or issues:
-        print(f"[✂️ 剪辑] 根据 Reviewer 反馈微调...")
+        print(f"[️ 剪辑] 根据 Reviewer 反馈微调...")
         segments = _apply_review_feedback(segments, suggestions, issues, total_duration)
 
     # ── 确保边界合法 ──
@@ -366,18 +366,18 @@ def editor_node(state: VideoEditState) -> dict:
             })
 
     if not edit_plan:
-        print(f"[✂️ 剪辑] ⚠️ 未产生有效片段，保留全片")
+        print(f"[️ 剪辑] ️ 未产生有效片段，保留全片")
         edit_plan = [{"start": 0, "end": total_duration, "reason": "无有效片段", "score": 0, "events": []}]
 
     seg_total = sum(s["end"] - s["start"] for s in edit_plan)
-    print(f"[✂️ 剪辑] 最终方案: {len(edit_plan)} 段, {seg_total:.1f}s")
+    print(f"[️ 剪辑] 最终方案: {len(edit_plan)} 段, {seg_total:.1f}s")
 
     for i, seg in enumerate(edit_plan[:10]):
         print(f"  [{i+1}] {seg['start']:.0f}s-{seg['end']:.0f}s | {seg.get('reason', '')[:80]}")
 
     if summary:
-        emit_progress(f"  📐 {summary}")
-    emit_progress(f"  📐 方案: {len(edit_plan)} 段, {seg_total:.0f}s")
+        emit_progress(f"   {summary}")
+    emit_progress(f"   方案: {len(edit_plan)} 段, {seg_total:.0f}s")
 
     return {
         "edit_plan": edit_plan,
@@ -402,7 +402,7 @@ def _apply_review_feedback(segments: list[dict], suggestions: str, issues: list[
             if closest and abs((closest["start"] + closest["end"]) / 2 - missing_time) < 60:
                 closest["start"] = min(closest["start"], max(0, missing_time - 20))
                 closest["end"] = max(closest["end"], min(duration, missing_time + 20))
-                print(f"  🔧 扩展片段覆盖遗漏点 {missing_time}s")
+                print(f"   扩展片段覆盖遗漏点 {missing_time}s")
         # ── [误判] 片段 3: ... → 删除对应片段 ──
         if issue.startswith("[误判]"):
             seg_match = re.search(r'片段\s*(\d+)', str(issue))
@@ -410,7 +410,7 @@ def _apply_review_feedback(segments: list[dict], suggestions: str, issues: list[
                 idx = int(seg_match.group(1)) - 1  # 1-based → 0-based
                 if 0 <= idx < len(segments):
                     remove_indices.add(idx)
-                    print(f"  🗑️ 移除误判片段 [{idx+1}] {segments[idx]['start']:.0f}s-{segments[idx]['end']:.0f}s")
+                    print(f"  ️ 移除误判片段 [{idx+1}] {segments[idx]['start']:.0f}s-{segments[idx]['end']:.0f}s")
     if remove_indices:
         segments = [s for i, s in enumerate(segments) if i not in remove_indices]
     return segments
@@ -436,19 +436,19 @@ def _execute_cut(video_path: str, edit_plan: list[dict], target_ar: str | None,
     results_dir.mkdir(parents=True, exist_ok=True)
     final_name = f"{output_name}.mp4" if output_name else f"{Path(video_path).stem}_cut.mp4"
     result_output = str(results_dir / final_name)
-    print(f"[✂️ 剪辑] 🎬 裁剪+拼接 {len(edit_plan)} 段 → {Path(result_output).name}")
+    print(f"[️ 剪辑]  裁剪+拼接 {len(edit_plan)} 段 → {Path(result_output).name}")
 
     seg_total_dur = sum(s["end"] - s["start"] for s in edit_plan)
     def _trim_progress(pct):
-        emit_status(f"✂️ 渲染中... {pct}% ({seg_total_dur:.0f}s 总输出)")
+        emit_status(f"️ 渲染中... {pct}% ({seg_total_dur:.0f}s 总输出)")
 
-    emit_status(f"✂️ 渲染中... 0% ({seg_total_dur:.0f}s 总输出)")
+    emit_status(f"️ 渲染中... 0% ({seg_total_dur:.0f}s 总输出)")
     trim_result = tool.trim(video_path, edit_plan, result_output, progress_cb=_trim_progress)
     if not trim_result.get("success"):
         err_msg = trim_result.get('error', '')[:200]
-        print(f"[✂️ 剪辑] ⚠️ 裁剪失败: {err_msg}")
-        emit_status(f"❌ 裁剪失败: {err_msg[:60]}")
-        emit_progress(f"  ❌ FFmpeg 失败，返回原始视频")
+        print(f"[️ 剪辑] ️ 裁剪失败: {err_msg}")
+        emit_status(f" 裁剪失败: {err_msg[:60]}")
+        emit_progress(f"   FFmpeg 失败，返回原始视频")
         return {"final_output": video_path, "plan_approved": True, "error": f"FFmpeg失败: {err_msg}"}
 
     # ── 写入 manifest（供前端展示片段信息）──
@@ -474,8 +474,8 @@ def _execute_cut(video_path: str, edit_plan: list[dict], target_ar: str | None,
     with open(manifest_path, "w", encoding="utf-8") as mf:
         json.dump(manifest, mf, ensure_ascii=False, indent=2)
 
-    emit_status(f"✅ 裁剪完成 ({seg_total_dur:.0f}s)")
-    emit_progress(f"  📦 成品: {Path(result_output).name} ({seg_total_dur:.0f}s, results/)")
+    emit_status(f" 裁剪完成 ({seg_total_dur:.0f}s)")
+    emit_progress(f"   成品: {Path(result_output).name} ({seg_total_dur:.0f}s, results/)")
 
     return {
         "final_output": result_output,

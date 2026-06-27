@@ -72,7 +72,7 @@ function EmptyState() {
       color: 'var(--text-tertiary)',
       userSelect: 'none',
     }}>
-      <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}>🎬</div>
+      <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}></div>
       <div style={{
         fontSize: 'var(--text-lg)',
         fontWeight: 'var(--font-medium)',

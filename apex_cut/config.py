@@ -256,7 +256,7 @@ class Settings:
     )
     #   ┌─ 质量优先 ─────────────────────────────────────────────┐
     #   │ qwen3.7-max-2026-06-08  顶级推理，最贵，复杂任务首选   │
-    #   │ qwen3.7-plus            旗舰平衡，1M 上下文 (★推荐)    │
+    #   │ qwen3.7-plus            旗舰平衡，1M 上下文 (推荐)    │
     #   │ qwen3.6-plus            上代旗舰，1M 上下文              │
     #   │ qwen3.5-plus            高性价比，1M 上下文              │
     #   ├─ 速度优先 ─────────────────────────────────────────────┤
@@ -267,7 +267,7 @@ class Settings:
         default_factory=lambda: os.getenv("QWEN_VISION_MODEL", "qwen3.7-plus")
     )
     #   ┌─ 质量优先 ─────────────────────────────────────────────┐
-    #   │ qwen3.7-plus            原生多模态，1M 上下文 (★推荐)   │
+    #   │ qwen3.7-plus            原生多模态，1M 上下文 (推荐)   │
     #   │ qwen3.6-plus            原生多模态，1M 上下文            │
     #   │ qwen3-vl-plus           专用视觉模型，262K 上下文        │
     #   ├─ 速度优先 ─────────────────────────────────────────────┤
@@ -477,20 +477,20 @@ def create_multimodal_llm(temperature: float = 0.3,
         model = runtime_model or settings.zhipu_model
         api_key = runtime_api_key or settings.zhipu_api_key
         base_url = runtime_base_url or settings.zhipu_base_url
-        print(f"  👁️  视觉 LLM: 智谱AI {model}")
+        print(f"  ️  视觉 LLM: 智谱AI {model}")
 
     elif provider == "qwen":
         model = runtime_model or settings.qwen_vision_model
         api_key = runtime_api_key or settings.qwen_api_key
         base_url = runtime_base_url or settings.qwen_base_url
-        print(f"  👁️  视觉 LLM: 阿里百炼 {model}")
+        print(f"  ️  视觉 LLM: 阿里百炼 {model}")
 
     elif provider == "anthropic":
         # Anthropic Claude 原生支持视觉，但走自己的 SDK
         from langchain_anthropic import ChatAnthropic
         model = runtime_model or settings.anthropic_model
         api_key = runtime_api_key or settings.anthropic_api_key
-        print(f"  👁️  视觉 LLM: Anthropic {model}")
+        print(f"  ️  视觉 LLM: Anthropic {model}")
         return ChatAnthropic(
             model=model, api_key=api_key, temperature=temperature,
         )
@@ -499,7 +499,7 @@ def create_multimodal_llm(temperature: float = 0.3,
         model = runtime_model or settings.openai_model
         api_key = runtime_api_key or settings.openai_api_key
         base_url = runtime_base_url or settings.openai_base_url
-        print(f"  👁️  视觉 LLM: OpenAI {model}")
+        print(f"  ️  视觉 LLM: OpenAI {model}")
 
     return ChatOpenAI(
         model=model,
@@ -637,7 +637,7 @@ PROVIDER_REGISTRY = {
         "api_base": "https://api.deepseek.com/v1",
         "api_style": "openai",  # OpenAI 兼容 API
         "text_models": [
-            {"id": "deepseek-v4-pro", "name": "DeepSeek-V4-Pro ★", "desc": "最新旗舰，复杂任务首选 (推荐)"},
+            {"id": "deepseek-v4-pro", "name": "DeepSeek-V4-Pro ", "desc": "最新旗舰，复杂任务首选 (推荐)"},
             {"id": "deepseek-chat", "name": "DeepSeek-V3.1 (Chat)", "desc": "通用对话，164K 上下文"},
             {"id": "deepseek-reasoner", "name": "DeepSeek-R1 (Reasoner)", "desc": "深度推理，适合复杂分析"},
         ],
@@ -652,14 +652,14 @@ PROVIDER_REGISTRY = {
         "api_style": "openai",
         "text_models": [
             {"id": "qwen3.7-max-2026-06-08", "name": "Qwen3.7-Max", "desc": "顶级推理，最贵，复杂任务首选"},
-            {"id": "qwen3.7-plus", "name": "Qwen3.7-Plus ★", "desc": "旗舰平衡，256K 上下文 (推荐)"},
+            {"id": "qwen3.7-plus", "name": "Qwen3.7-Plus ", "desc": "旗舰平衡，256K 上下文 (推荐)"},
             {"id": "qwen3.6-plus", "name": "Qwen3.6-Plus", "desc": "上代旗舰，1M 上下文"},
             {"id": "qwen3.6-flash", "name": "Qwen3.6-Flash", "desc": "快速响应，1M 上下文"},
             {"id": "qwen3.5-plus", "name": "Qwen3.5-Plus", "desc": "高性价比，1M 上下文 (省钱)"},
             {"id": "qwen3.5-flash", "name": "Qwen3.5-Flash", "desc": "轻量快速，1M 上下文 (极速)"},
         ],
         "vision_models": [
-            {"id": "qwen3.7-plus", "name": "Qwen3.7-Plus ★", "desc": "原生多模态，256K 上下文 (推荐)"},
+            {"id": "qwen3.7-plus", "name": "Qwen3.7-Plus ", "desc": "原生多模态，256K 上下文 (推荐)"},
             {"id": "qwen3.6-plus", "name": "Qwen3.6-Plus", "desc": "原生多模态，1M 上下文"},
             {"id": "qwen3.6-flash", "name": "Qwen3.6-Flash", "desc": "快速视觉，1M 上下文"},
             {"id": "qwen3-vl-plus", "name": "Qwen3-VL-Plus", "desc": "专用视觉模型，262K 上下文"},
@@ -676,10 +676,10 @@ PROVIDER_REGISTRY = {
             {"id": "GLM-5.1", "name": "GLM-5.1", "desc": "最新旗舰，Coding 对齐 Claude，200K"},
             {"id": "GLM-5", "name": "GLM-5", "desc": "高智能基座，Agentic 长程规划，200K"},
             {"id": "GLM-4.7", "name": "GLM-4.7", "desc": "Agentic Coding 强化，200K 上下文"},
-            {"id": "GLM-4.7-Flash", "name": "GLM-4.7-Flash ★", "desc": "免费旗舰普惠版，200K 上下文 (推荐)"},
+            {"id": "GLM-4.7-Flash", "name": "GLM-4.7-Flash ", "desc": "免费旗舰普惠版，200K 上下文 (推荐)"},
         ],
         "vision_models": [
-            {"id": "GLM-5V-Turbo", "name": "GLM-5V-Turbo ★", "desc": "首个多模态Agent模型，200K (推荐)"},
+            {"id": "GLM-5V-Turbo", "name": "GLM-5V-Turbo ", "desc": "首个多模态Agent模型，200K (推荐)"},
             {"id": "GLM-4.6V", "name": "GLM-4.6V", "desc": "视觉推理 SOTA，原生 Function Call，128K"},
             {"id": "GLM-4.6V-Flash", "name": "GLM-4.6V-Flash", "desc": "免费轻量视觉推理，9B 参数"},
             {"id": "GLM-4V-Flash", "name": "GLM-4V-Flash", "desc": "免费图像理解，16K 上下文"},
@@ -696,13 +696,13 @@ PROVIDER_REGISTRY = {
             {"id": "gpt-4.1", "name": "GPT-4.1", "desc": "最新旗舰，1M 上下文，最强编码"},
             {"id": "gpt-4.1-mini", "name": "GPT-4.1-Mini", "desc": "平衡性价比，1M 上下文"},
             {"id": "gpt-4.1-nano", "name": "GPT-4.1-Nano", "desc": "极致便宜，1M 上下文"},
-            {"id": "gpt-4o", "name": "GPT-4o ★", "desc": "经典多模态旗舰，128K (推荐)"},
+            {"id": "gpt-4o", "name": "GPT-4o ", "desc": "经典多模态旗舰，128K (推荐)"},
             {"id": "gpt-4o-mini", "name": "GPT-4o-Mini", "desc": "轻量多模态，128K，极便宜"},
             {"id": "o3", "name": "o3", "desc": "前沿推理，视觉+思维链，200K"},
             {"id": "o4-mini", "name": "o4-mini", "desc": "性价比推理+视觉，200K"},
         ],
         "vision_models": [
-            {"id": "gpt-4.1", "name": "GPT-4.1 ★", "desc": "最新视觉，1M 上下文 (推荐)"},
+            {"id": "gpt-4.1", "name": "GPT-4.1 ", "desc": "最新视觉，1M 上下文 (推荐)"},
             {"id": "gpt-4.1-mini", "name": "GPT-4.1-Mini", "desc": "平衡视觉，1M 上下文"},
             {"id": "gpt-4o", "name": "GPT-4o", "desc": "经典多模态，128K"},
             {"id": "gpt-4o-mini", "name": "GPT-4o-Mini", "desc": "轻量视觉，128K，极便宜"},
@@ -717,12 +717,12 @@ PROVIDER_REGISTRY = {
         "api_base": "https://api.anthropic.com",
         "api_style": "anthropic",
         "text_models": [
-            {"id": "claude-opus-4-8", "name": "Claude Opus 4.8 ★", "desc": "最强旗舰，128K 输出 (推荐)"},
+            {"id": "claude-opus-4-8", "name": "Claude Opus 4.8 ", "desc": "最强旗舰，128K 输出 (推荐)"},
             {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "desc": "最佳速度+智能平衡，64K 输出"},
             {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "desc": "快速便宜，64K 输出"},
         ],
         "vision_models": [
-            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 ★", "desc": "最佳视觉+智能平衡 (推荐)"},
+            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 ", "desc": "最佳视觉+智能平衡 (推荐)"},
             {"id": "claude-opus-4-8", "name": "Claude Opus 4.8", "desc": "最强视觉理解"},
             {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "desc": "快速视觉，低成本"},
         ],

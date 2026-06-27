@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 
 const STEPS = [
-  { key: 'director', icon: '🎬', label: '导演' },
-  { key: 'analyzer', icon: '🔍', label: '分析' },
-  { key: 'editor',   icon: '✂️', label: '剪辑' },
-  { key: 'reviewer', icon: '📋', label: '审核' },
+  { key: 'director', icon: '', label: '导演' },
+  { key: 'analyzer', icon: '', label: '分析' },
+  { key: 'editor',   icon: '️', label: '剪辑' },
+  { key: 'reviewer', icon: '', label: '审核' },
 ]
 
 function detectStep(progress) {
@@ -109,7 +109,7 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
             color: 'var(--text-tertiary)',
             marginBottom: 'var(--space-2)',
           }}>
-            📜 实时日志
+             实时日志
           </div>
           <div style={{
             background: 'var(--bg-primary)',

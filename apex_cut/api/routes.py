@@ -54,7 +54,7 @@ class CreateTaskRequest(BaseModel):
     # ── Director 预览确认后传入（跳过 Director）──
     director_confirmed: bool = False
     confirmed_content_type: str = ""
-    confirmed_segment_strategy: dict | None = None   # ★ 核心：用户确认的策略
+    confirmed_segment_strategy: dict | None = None   #  核心：用户确认的策略
     confirmed_review_criteria: list[dict] | None = None
     confirmed_edit_style: str = ""
     confirmed_editing_notes: str = ""
@@ -99,7 +99,7 @@ class DirectorPreviewResponse(BaseModel):
     success: bool
     content_type: str = ""
     content_type_name: str = ""
-    segment_strategy: dict = {}     # ★ 核心：可执行片段策略
+    segment_strategy: dict = {}     #  核心：可执行片段策略
     review_criteria: list[dict] = []
     edit_style: str = ""
     editing_notes: str = ""
@@ -273,10 +273,10 @@ def _run_task(task_id: str, req: CreateTaskRequest):
         gpu_info = get_gpu_info_cached()
         gpu_summary = gpu_info.get("summary", "CPU 模式")
         if gpu_summary == "CPU 模式":
-            _log(f"  🖥️  GPU: 未检测到 — 全程 CPU 处理")
+            _log(f"  ️  GPU: 未检测到 — 全程 CPU 处理")
         else:
-            _log(f"  🚀 GPU: {gpu_summary}")
-        _push("🎬 开始处理", log="━━━ 🎬 导演 Agent 解析需求 ━━━")
+            _log(f"   GPU: {gpu_summary}")
+        _push(" 开始处理", log="━━━  导演 Agent 解析需求 ━━━")
 
         for event in workflow.stream(initial_state):
             node_name = list(event.keys())[0]
@@ -288,7 +288,7 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                 summary = node_data.get("director_plan_summary", "")[:120]
                 dur_str = f"{dur}s" if dur else "未指定"
                 _push(f"导演: {summary[:40] or '需求解析完成'}",
-                      log=f"📋 剪辑风格: {style or '智能判断'}  |  目标时长: {dur_str}")
+                      log=f" 剪辑风格: {style or '智能判断'}  |  目标时长: {dur_str}")
 
             elif node_name == "loader":
                 # 缓存加载 — 跳过分析，直接进入剪辑
@@ -301,11 +301,11 @@ def _run_task(task_id: str, req: CreateTaskRequest):
 
                 combat = sum(1 for f in fl if f.get("_changes", {}).get("in_combat"))
                 kills = sum(1 for f in fl if f.get("_changes", {}).get("kill_occurred"))
-                _push(f"📦 缓存命中: {len(fl)}帧标签",
-                      log=f"━━━ 📦 缓存加载 — 跳过视频分析 ━━━",
+                _push(f" 缓存命中: {len(fl)}帧标签",
+                      log=f"━━━  缓存加载 — 跳过视频分析 ━━━",
                       review_round=node_data.get("review_round", 0))
-                _log(f"  💾 全部数据从侧挂缓存加载")
-                _log(f"  👁️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
+                _log(f"   全部数据从侧挂缓存加载")
+                _log(f"  ️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
 
             elif node_name == "analyzer":
                 fl = node_data.get("frame_labels", [])
@@ -318,9 +318,9 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                 combat = sum(1 for f in fl if f.get("_changes", {}).get("in_combat"))
                 kills = sum(1 for f in fl if f.get("_changes", {}).get("kill_occurred"))
                 _push(f"分析完成: {len(fl)}帧标签",
-                      log=f"━━━ 🔍 分析 Agent 完成 ━━━",
+                      log=f"━━━  分析 Agent 完成 ━━━",
                       review_round=node_data.get("review_round", 0))
-                _log(f"  👁️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
+                _log(f"  ️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
 
             elif node_name == "editor":
                 plan = node_data.get("edit_plan", [])
@@ -337,37 +337,37 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                     if manifest_path:
                         _tasks[task_id]["manifest_path"] = manifest_path
                     _push(f"剪辑完成",
-                          log=f"━━━ ✂️ 剪辑 Agent 执行裁剪 ━━━",
+                          log=f"━━━ ️ 剪辑 Agent 执行裁剪 ━━━",
                           review_round=rnd)
                     import os as _os
                     if _os.path.exists(final_out):
                         size_mb = _os.path.getsize(final_out) / 1048576
-                        _log(f"  📦 成品 ({len(plan)} 段合并): {Path(final_out).name} ({size_mb:.1f}MB)")
+                        _log(f"   成品 ({len(plan)} 段合并): {Path(final_out).name} ({size_mb:.1f}MB)")
                 # 方案模式：制定/修改剪辑方案（不动刀）
                 else:
                     if draft:
                         draft_output = draft
                         _tasks[task_id]["final_output"] = draft
                     _push(f"剪辑方案第{rnd}轮: {len(plan)}段",
-                          log=f"━━━ ✂️ 剪辑 Agent 制定方案 第 {rnd} 轮 ━━━",
+                          log=f"━━━ ️ 剪辑 Agent 制定方案 第 {rnd} 轮 ━━━",
                           review_round=rnd)
-                    _log(f"  📐 保留 {len(plan)} 个片段（等待 Reviewer 审查）")
+                    _log(f"   保留 {len(plan)} 个片段（等待 Reviewer 审查）")
                     if draft:
                         import os as _os
                         size_mb = _os.path.getsize(draft) / 1048576 if _os.path.exists(draft) else 0
-                        _log(f"  📦 输出: {draft} ({size_mb:.1f}MB)")
+                        _log(f"   输出: {draft} ({size_mb:.1f}MB)")
 
             elif node_name == "reviewer":
                 approved = node_data.get("review_approved", False)
                 plan_approved = node_data.get("plan_approved", False)
                 issues = node_data.get("review_issues", [])
                 score = 100.0 if approved else 0.0
-                _push(f"审查: {'✅ 通过' if approved else '❌ 不通过'}",
-                      log=f"━━━ 📋 审核 Agent ━━━",
+                _push(f"审查: {' 通过' if approved else ' 不通过'}",
+                      log=f"━━━  审核 Agent ━━━",
                       review_score=score)
-                _log(f"  🎯 结果: {'✅ 方案通过 → 允许裁剪' if approved else '❌ 方案需修改 → 返回 Editor'}")
+                _log(f"   结果: {' 方案通过 → 允许裁剪' if approved else ' 方案需修改 → 返回 Editor'}")
                 for iss in issues[:5]:
-                    _log(f"  ⚠️ {iss[:100]}")
+                    _log(f"  ️ {iss[:100]}")
 
                 _tasks[task_id].update({
                     "final_output": draft_output,
@@ -377,12 +377,12 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                 })
                 push_event(task_id, {"review_score": score})
 
-        _push("✅ 全部完成", log="━━━ ✅ 剪辑任务完成 ━━━", status="done")
+        _push(" 全部完成", log="━━━  剪辑任务完成 ━━━", status="done")
 
     except Exception as e:
         from apex_cut.errors import CriticalAPIError
         if isinstance(e, CriticalAPIError):
-            _push(f"❌ API 错误 ({e.status_code}): {e}", status="failed", error=str(e))
+            _push(f" API 错误 ({e.status_code}): {e}", status="failed", error=str(e))
         else:
             _push(f"失败: {str(e)[:200]}", status="failed", error=f"运行异常: {str(e)[:500]}")
     finally:
@@ -499,7 +499,7 @@ def register_routes(app: FastAPI):
             return {
                 "success": True,
                 "provider": provider,
-                "message": f"✅ {provider.upper()} 连接成功",
+                "message": f" {provider.upper()} 连接成功",
                 "test_reply": reply[:50],
             }
         except Exception as e:
@@ -536,7 +536,7 @@ def register_routes(app: FastAPI):
                 detail=f"不支持的视频格式: {ext}，支持: {', '.join(sorted(allowed))}")
 
         size_mb = p.stat().st_size / (1024 * 1024)
-        print(f"[路径验证] ✅ {req.path} ({size_mb:.0f}MB)")
+        print(f"[路径验证]  {req.path} ({size_mb:.0f}MB)")
         return {
             "success": True,
             "video_path": str(p.resolve()),
@@ -764,7 +764,7 @@ def register_routes(app: FastAPI):
         if not _preflight_check(req):
             _tasks[task_id]["status"] = "failed"
             _tasks[task_id]["error"] = "API Key 预检失败：无法连接到 LLM 服务，请检查 Key 和网络"
-            _tasks[task_id]["progress"] = "❌ API Key 验证失败"
+            _tasks[task_id]["progress"] = " API Key 验证失败"
             return TaskStatus(**_tasks[task_id])
 
         thread = threading.Thread(target=_run_task, args=(task_id, req), daemon=True)

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 
 const EVENT_ICON = {
-  kill: '💀', assist: '🤝', combat: '⚡',
+  kill: '', assist: '', combat: '',
 }
 
 export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder, taskId }) {
@@ -46,7 +46,7 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
           textTransform: 'uppercase',
           letterSpacing: 0.5,
         }}>
-          🎬 片段 ({clips.length}) · {fmtDuration(totalDuration)}
+           片段 ({clips.length}) · {fmtDuration(totalDuration)}
         </span>
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
           ↕ 拖拽排序 · 点击预览
@@ -124,7 +124,7 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
                 gap: 1,
               }}>
                 <span style={{ fontSize: 16, lineHeight: 1, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>
-                  {EVENT_ICON[mainEvent] || '⚡'}
+                  {EVENT_ICON[mainEvent] || ''}
                 </span>
                 <span style={{
                   fontSize: 10,

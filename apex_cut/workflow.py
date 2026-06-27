@@ -55,22 +55,22 @@ def route_after_director(state: VideoEditState) -> str:
     if video_path and has_cache(video_path,
                                 frame_interval=state.get("frame_interval", 0) or 0,
                                 max_vision_frames=state.get("max_vision_frames", 0) or 0):
-        print("[路由] 📦 缓存命中 → 跳过视频分析，直接加载")
+        print("[路由]  缓存命中 → 跳过视频分析，直接加载")
         return "loader"
 
-    print("[路由] 🔍 无缓存 → 启动视频分析")
+    print("[路由]  无缓存 → 启动视频分析")
     return "analyzer"
 
 
 def route_after_loader(state: VideoEditState) -> str:
     """缓存加载后路由：成功 → Editor，失败(_cache_miss) → Analyzer."""
     if state.get("_cache_miss"):
-        print("[路由] ⚠️ 缓存加载失败 → 回退到视频分析")
+        print("[路由] ️ 缓存加载失败 → 回退到视频分析")
         return "analyzer"
     if state.get("error"):
         print("[路由] 检测到错误，终止流程")
         return "end"
-    print("[路由] ✅ 缓存加载完成 → 进入剪辑")
+    print("[路由]  缓存加载完成 → 进入剪辑")
     return "editor"
 
 
@@ -82,7 +82,7 @@ def route_after_editor(state: VideoEditState) -> str:
 
     # 方案已批准 → Editor 刚完成裁剪 → 结束
     if state.get("plan_approved"):
-        print("[路由] 裁剪完成 ✅ → 结束")
+        print("[路由] 裁剪完成  → 结束")
         return "end"
 
     # 方案未批准 → 刚生成/修改了方案 → 交给 Reviewer 审查
@@ -98,7 +98,7 @@ def route_after_review(state: VideoEditState) -> str:
 
     # 方案通过 → Editor 执行裁剪
     if state.get("plan_approved"):
-        print("[路由] 方案审查通过 ✅ → Editor 执行裁剪")
+        print("[路由] 方案审查通过  → Editor 执行裁剪")
         return "editor"
 
     # 超过最大重试轮数 → 强制裁剪

@@ -52,9 +52,9 @@ def _check_coverage(edit_plan: list[dict], frame_labels: list[dict]) -> list[dic
             })
 
     if missed:
-        print(f"[📋 审核] ❌ 遗漏 {len(missed)}/{len(kill_events)} 个击杀事件")
+        print(f"[ 审核]  遗漏 {len(missed)}/{len(kill_events)} 个击杀事件")
     else:
-        print(f"[📋 审核] ✅ 全部 {len(kill_events)} 个击杀事件已覆盖")
+        print(f"[ 审核]  全部 {len(kill_events)} 个击杀事件已覆盖")
 
     return missed
 
@@ -66,12 +66,12 @@ def _check_coverage(edit_plan: list[dict], frame_labels: list[dict]) -> list[dic
 REVIEW_LLM_SYSTEM = """你是 Apex Legends 剪辑质检员。
 检查 Editor 的片段方案，但只能基于你实际看到的数据判断。
 
-## ⚠️ 你能看到的数据
+## ️ 你能看到的数据
 每个片段只有: start, end, events 列表, score。
 已知 events: kill(击杀), assist(助攻), combat(交火)。
 你**看不到**场景类型。不要猜测或编造"舔包""跑图""选人""跳伞"。
 
-## ★ 重要：长片段是正常的
+##  重要：长片段是正常的
 当多个击杀发生在短时间内，Editor 会把它们合并成一个长片段。
 例如 3 个击杀在 520s/540s/580s → 合并为 [500, 600]=100s。这是**正确行为**，不要报 boundary_issue。
 只有片段确实无效时才报 false_positive。
@@ -135,12 +135,12 @@ def _llm_quality_check(edit_plan: list[dict], strategy: dict, state: dict) -> di
             content = content.split("\n", 1)[1].rsplit("\n```", 1)[0]
 
         result = json.loads(content)
-        print(f"[📋 审核] LLM 质检: {len(result.get('false_positives', []))} 误判, "
+        print(f"[ 审核] LLM 质检: {len(result.get('false_positives', []))} 误判, "
               f"{len(result.get('boundary_issues', []))} 边界问题")
         return result
 
     except Exception as e:
-        print(f"[📋 审核] LLM 质检失败（不影响）: {e}")
+        print(f"[ 审核] LLM 质检失败（不影响）: {e}")
         return {"false_positives": [], "boundary_issues": [], "summary": ""}
 
 
@@ -162,14 +162,14 @@ def reviewer_node(state: VideoEditState) -> dict:
     seg_total = sum(s["end"] - s["start"] for s in edit_plan) if edit_plan else 0
 
     print(f"\n{'='*60}")
-    print(f"[📋 审核] 第 {review_round} 轮" + (" [最后一轮]" if is_last_round else ""))
-    print(f"[📋 审核] {keep_count} 段, {seg_total:.0f}s — 检查遗漏和误判")
+    print(f"[ 审核] 第 {review_round} 轮" + (" [最后一轮]" if is_last_round else ""))
+    print(f"[ 审核] {keep_count} 段, {seg_total:.0f}s — 检查遗漏和误判")
     print(f"{'='*60}")
-    emit_status(f"📋 审核中... (第{review_round}轮)")
-    emit_progress(f"━━━ 📋 审核 Agent 第 {review_round} 轮 ━━━")
+    emit_status(f" 审核中... (第{review_round}轮)")
+    emit_progress(f"━━━  审核 Agent 第 {review_round} 轮 ━━━")
 
     if not edit_plan:
-        print(f"[📋 审核] ⚠️ 空方案，不通过")
+        print(f"[ 审核] ️ 空方案，不通过")
         return {
             "review_score": 0.0,
             "review_issues": ["方案为空，无任何片段"],
@@ -179,7 +179,7 @@ def reviewer_node(state: VideoEditState) -> dict:
         }
 
     if not frame_labels:
-        print(f"[📋 审核] ⚠️ 无 frame_labels 数据，跳过审核")
+        print(f"[ 审核] ️ 无 frame_labels 数据，跳过审核")
         return {
             "review_score": 100.0,
             "review_issues": [],
@@ -211,10 +211,10 @@ def reviewer_node(state: VideoEditState) -> dict:
         # 最后一轮：除非明显漏击杀，否则通过
         if not real_missed:
             approved = True
-            print(f"[📋 审核] 最后轮次无击杀遗漏 → ✅ 保底通过")
+            print(f"[ 审核] 最后轮次无击杀遗漏 →  保底通过")
         else:
             approved = False
-            print(f"[📋 审核] ⚠️ 最后轮次仍遗漏 {len(real_missed)} 个击杀")
+            print(f"[ 审核] ️ 最后轮次仍遗漏 {len(real_missed)} 个击杀")
     else:
         # 正常轮次：零遗漏 + 零误判 = 通过（boundary_issues 仅供参考，不导致拒绝）
         approved = len(real_missed) == 0 and len(false_positives) == 0
@@ -237,7 +237,7 @@ def reviewer_node(state: VideoEditState) -> dict:
         fix_parts.append("请移除或合并误判片段")
     fix_instructions = "; ".join(fix_parts) if fix_parts else ""
 
-    print(f"[📋 审核] {'✅ 通过' if approved else '❌ 不通过'} "
+    print(f"[ 审核] {' 通过' if approved else ' 不通过'} "
           f"(遗漏={len(real_missed)}, 误判={len(false_positives)}, 边界={len(boundary_issues)})")
 
     return {

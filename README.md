@@ -13,13 +13,13 @@
 
 ## 功能
 
-- 🎮 专为 Apex Legends 设计，识别击杀/助攻/伤害事件
-- 🧠 LLM 翻译自然语言需求为精确剪辑参数
-- 👁️ 视觉 AI 读取游戏 UI 数据，无需 OCR
-- ⚡ 侧挂缓存，同一视频重跑秒级跳过分析
-- 🎬 FFmpeg 自动 GPU 加速（NVENC/QSV/AMF）
-- 🌐 Web UI + 命令行两种使用方式
-- 🔑 支持 DeepSeek / Qwen / GLM / OpenAI / Anthropic
+-  专为 Apex Legends 设计，识别击杀/助攻/伤害事件
+-  LLM 翻译自然语言需求为精确剪辑参数
+- ️ 视觉 AI 读取游戏 UI 数据，无需 OCR
+-  侧挂缓存，同一视频重跑秒级跳过分析
+-  FFmpeg 自动 GPU 加速（NVENC/QSV/AMF）
+-  Web UI + 命令行两种使用方式
+-  支持 DeepSeek / Qwen / GLM / OpenAI / Anthropic
 
 ## 环境要求
 

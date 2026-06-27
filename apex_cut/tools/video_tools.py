@@ -74,14 +74,14 @@ class FFmpegTool:
     def __init__(self, ffmpeg_path: Optional[str] = None):
         self.ffmpeg = ffmpeg_path or settings.ffmpeg_path
         if not shutil.which(self.ffmpeg):
-            print(f"⚠️ FFmpeg ('{self.ffmpeg}') 未找到，请安装 FFmpeg 并确保在 PATH 中")
+            print(f"️ FFmpeg ('{self.ffmpeg}') 未找到，请安装 FFmpeg 并确保在 PATH 中")
         self._codec = settings.output_codec
         self._hwaccel = settings.ffmpeg_hwaccel
         self._gpu_decode = self._hwaccel != "none" and shutil.which(self.ffmpeg)
         if self._codec != "libx264":
-            print(f"  🚀 GPU 编码: {self._hwaccel} → {self._codec}")
+            print(f"   GPU 编码: {self._hwaccel} → {self._codec}")
         if self._gpu_decode:
-            print(f"  🚀 GPU 解码: {self._hwaccel}")
+            print(f"   GPU 解码: {self._hwaccel}")
 
     def _decode_args(self) -> list[str]:
         """GPU 硬件解码参数（用于不涉及 filter_complex 的简单操作）."""

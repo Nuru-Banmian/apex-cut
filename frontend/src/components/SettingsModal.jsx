@@ -89,7 +89,7 @@ export default function SettingsModal({
     }
 
     setBusy(true)
-    setStatus({ type: 'testing', msg: '⏳ 测试连接中...' })
+    setStatus({ type: 'testing', msg: ' 测试连接中...' })
 
     // Step 1: 测试文本模型
     if (hasNewTextKey) {
@@ -117,7 +117,7 @@ export default function SettingsModal({
 
     // Step 2: 测试视觉模型（与文本不同提供商时）
     if (hasNewVisKey) {
-      setStatus({ type: 'testing', msg: '👁️ 测试视觉模型连接...' })
+      setStatus({ type: 'testing', msg: '️ 测试视觉模型连接...' })
       const visTestPayload = { llm_provider: visionProvider, [KEY_FIELD[visionProvider]]: visionApiKey }
       try {
         const resp = await fetch('/api/config/test', {
@@ -141,7 +141,7 @@ export default function SettingsModal({
     }
 
     // Step 3: 保存
-    setStatus({ type: 'testing', msg: '💾 保存配置中...' })
+    setStatus({ type: 'testing', msg: ' 保存配置中...' })
     const savePayload = { llm_provider: textProvider, vision_provider: visionProvider }
     if (hasNewTextKey) savePayload[KEY_FIELD[textProvider]] = textApiKey
     if (hasNewVisKey) savePayload[KEY_FIELD[visionProvider]] = visionApiKey
@@ -168,7 +168,7 @@ export default function SettingsModal({
       if (data.success) {
         if (hasNewTextKey || hasTextSaved) setKeyVerified(true)
         setHasSavedKey(true)
-        setStatus({ type: 'success', msg: '✅ 配置已保存，即刻生效' })
+        setStatus({ type: 'success', msg: ' 配置已保存，即刻生效' })
         if (hasNewTextKey) setTextApiKey('')
         if (hasNewVisKey) setVisionApiKey('')
       }
@@ -226,7 +226,7 @@ export default function SettingsModal({
           borderBottom: '1px solid var(--border-subtle)',
         }}>
           <span style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-semibold)' }}>
-            ⚙ 设置
+             设置
           </span>
           <button onClick={onClose} style={{
             width: 28,
@@ -239,7 +239,7 @@ export default function SettingsModal({
             color: 'var(--text-tertiary)',
             fontSize: 'var(--text-lg)',
           }}>
-            ✕
+            
           </button>
         </div>
 
@@ -263,7 +263,7 @@ export default function SettingsModal({
                 background: 'none',
               }}
             >
-              {tab === 'api' ? '🔑 API 配置' : '🔧 高级'}
+              {tab === 'api' ? ' API 配置' : ' 高级'}
             </button>
           ))}
         </div>
@@ -279,7 +279,7 @@ export default function SettingsModal({
                 color: 'var(--text-primary)',
                 textTransform: 'uppercase',
               }}>
-                📝 文本模型
+                 文本模型
               </div>
 
               <div>
@@ -343,12 +343,12 @@ export default function SettingsModal({
                       fontSize: 'var(--text-sm)',
                     }}
                   >
-                    {showPw ? '🙈' : '👁'}
+                    {showPw ? '' : ''}
                   </button>
                 </div>
                 {hasTextSaved && (
                   <div className="text-xs" style={{ marginTop: 'var(--space-1)', color: 'var(--success)' }}>
-                    ✅ 已保存
+                     已保存
                   </div>
                 )}
               </div>
@@ -362,7 +362,7 @@ export default function SettingsModal({
                   textTransform: 'uppercase',
                   marginBottom: 'var(--space-3)',
                 }}>
-                  👁️ 视觉模型
+                  ️ 视觉模型
                 </div>
 
                 <div style={{ marginBottom: 'var(--space-3)' }}>
@@ -428,21 +428,21 @@ export default function SettingsModal({
                           fontSize: 'var(--text-sm)',
                         }}
                       >
-                        {showPw ? '🙈' : '👁'}
+                        {showPw ? '' : ''}
                       </button>
                     </div>
                     {hasVisSaved && (
                       <div className="text-xs" style={{ marginTop: 'var(--space-1)', color: 'var(--success)' }}>
-                        ✅ 已保存
+                         已保存
                       </div>
                     )}
                     <div className="text-xs" style={{ marginTop: 'var(--space-1)', color: 'var(--warning)' }}>
-                      ⚠️ 视觉与文本使用不同平台，需独立 Key
+                      ️ 视觉与文本使用不同平台，需独立 Key
                     </div>
                   </div>
                 ) : (
                   <div className="text-xs" style={{ color: 'var(--success)' }}>
-                    ✅ 视觉与文本共用 {textProv.name} API Key
+                     视觉与文本共用 {textProv.name} API Key
                   </div>
                 )}
               </div>
@@ -497,7 +497,7 @@ export default function SettingsModal({
                 fontFamily: 'inherit',
               }}
             >
-              {busy ? '⏳ 验证中...' : keyVerified ? '✅ 已就绪 — 重新验证' : '🔍 测试并保存'}
+              {busy ? ' 验证中...' : keyVerified ? ' 已就绪 — 重新验证' : ' 测试并保存'}
             </button>
             {status.msg && (
               <div style={{
@@ -517,7 +517,7 @@ export default function SettingsModal({
           color: 'var(--text-tertiary)',
           textAlign: 'center',
         }}>
-          🔒 Key 仅保存在本地 .env，不上传第三方
+           Key 仅保存在本地 .env，不上传第三方
         </div>
       </div>
     </div>

@@ -57,23 +57,23 @@ VISION_APEX_SYSTEM = """你是 Apex Legends 游戏画面数据提取器。
 **横向排列**，从左到右依次是：
 
 ┌─────────────────────────────┐
-│ 💀5    🤝2    👥7    💥1234  │
+│ 5    2    7    1234  │
 │ 人头   助攻   小队击杀  伤害  │
 └─────────────────────────────┘
 
 - **人头**(kills)：你的本局累计击杀数
 - **助攻**(assists)：你的本局累计助攻数
-- **小队击杀**(team_kills)：⚠️ 注意！这个数据**只在排位赛中存在**。非排位（匹配/娱乐模式）画面中只有三个数字（人头、助攻、伤害），没有这个字段。如果只看到三个数字，team_kills **填 null 不要强读**。
+- **小队击杀**(team_kills)：️ 注意！这个数据**只在排位赛中存在**。非排位（匹配/娱乐模式）画面中只有三个数字（人头、助攻、伤害），没有这个字段。如果只看到三个数字，team_kills **填 null 不要强读**。
 - **伤害**(damage)：你的本局累计伤害数
 
 **非排位画面（三个数字，从左到右）：**
 ┌──────────────────────┐
-│ 💀5    🤝2    💥1234  │
+│ 5    2    1234  │
 └──────────────────────┘
 
 **排位画面（四个数字，从左到右）：**
 ┌─────────────────────────────┐
-│ 💀5    🤝2    👥7    💥1234  │
+│ 5    2    7    1234  │
 └─────────────────────────────┘
 
 数字变化含义：
@@ -148,7 +148,7 @@ def detect_combat_events(frame_labels: list[dict]) -> list[dict]:
         curr_team_kills = stats.get("team_kills")
         curr_damage = stats.get("damage")
 
-        # ★ 首个有效帧：如果已有击杀/高伤害，说明战斗发生在抽帧覆盖之前
+        #  首个有效帧：如果已有击杀/高伤害，说明战斗发生在抽帧覆盖之前
         if prev_valid is None and (curr_kills is not None or curr_damage is not None):
             if curr_kills is not None and curr_kills > 0:
                 curr["_changes"]["kill_occurred"] = True
@@ -273,7 +273,7 @@ def describe_frames(frame_dir: str, sample_count: int = 10) -> dict:
         return {"success": False, "error": f"多模态 LLM 初始化失败: {e}"}
 
     descriptions = []
-    print(f"  🖼️  逐帧分析 {len(sampled)} 张图片...")
+    print(f"  ️  逐帧分析 {len(sampled)} 张图片...")
     for i, fpath in enumerate(sampled):
         try:
             frame_num = int(fpath.stem.split("_")[-1])
@@ -325,7 +325,7 @@ def describe_frames(frame_dir: str, sample_count: int = 10) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════
-# ★ Apex 专用：画面数据提取 + 战斗检测
+#  Apex 专用：画面数据提取 + 战斗检测
 # ═══════════════════════════════════════════════════════════════
 
 def _extract_json(resp_text: str) -> str:
@@ -417,9 +417,9 @@ def classify_frames_apex(
 
     # 读数需要更高分辨率
     read_px = max(settings.vision_max_px, 800)
-    msg = f"  📊 Apex 数据提取：{total_frames} 帧 → {total_chunks} 批 (分辨率 {read_px}px)"
+    msg = f"   Apex 数据提取：{total_frames} 帧 → {total_chunks} 批 (分辨率 {read_px}px)"
     print(msg); emit_progress(msg)
-    emit_status("👁️ 读取 UI 数据... 0%")
+    emit_status("️ 读取 UI 数据... 0%")
 
     all_labels = []
 
@@ -445,7 +445,7 @@ def classify_frames_apex(
                 "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
             })
 
-        msg = f"  📤 批次 {chunk_num}/{total_chunks} ({chunk_start}-{chunk_end} 帧, {chunk_size_kb/1024:.0f}KB)..."
+        msg = f"   批次 {chunk_num}/{total_chunks} ({chunk_start}-{chunk_end} 帧, {chunk_size_kb/1024:.0f}KB)..."
         print(f"\r{msg}", end="", flush=True); emit_progress_overwrite(msg)
 
         try:
@@ -477,7 +477,7 @@ def classify_frames_apex(
                         "player_stats": item.get("player_stats", {}),
                     })
 
-            msg = f"  ✅ 批次 {chunk_num}/{total_chunks} 完成 ({len(raw_frames)} 帧)"
+            msg = f"   批次 {chunk_num}/{total_chunks} 完成 ({len(raw_frames)} 帧)"
             if len(raw_frames) == 0:
                 # debug: 模型可能没理解格式，打印前 300 字符
                 snippet = resp_text[:300].replace("\n", "\\n")
@@ -485,8 +485,8 @@ def classify_frames_apex(
             print(f"\r{msg}"); emit_progress_overwrite(msg)
 
         except json.JSONDecodeError as e:
-            # ★ 重试：JSON 解析失败时再问一次，加强指令
-            msg = f"  ⚠️ 批次 {chunk_num} JSON 解析失败，重试中..."
+            #  重试：JSON 解析失败时再问一次，加强指令
+            msg = f"  ️ 批次 {chunk_num} JSON 解析失败，重试中..."
             print(f"\r{msg}"); emit_progress_overwrite(msg)
             try:
                 retry_parts = [{"type": "text", "text": "上轮返回格式有误。请严格只返回 JSON：{\"frames\": [...]}"}]
@@ -510,10 +510,10 @@ def classify_frames_apex(
                             "frame": frame_num, "time_seconds": 0.0,
                             "player_stats": item.get("player_stats", {}),
                         })
-                msg = f"  ✅ 批次 {chunk_num}/{total_chunks} 重试成功 ({len(raw_frames2)} 帧)"
+                msg = f"   批次 {chunk_num}/{total_chunks} 重试成功 ({len(raw_frames2)} 帧)"
                 print(f"\r{msg}"); emit_progress_overwrite(msg)
             except Exception:
-                msg = f"  ❌ 批次 {chunk_num} 重试也失败，丢弃 ({len(chunk)} 帧数据丢失)"
+                msg = f"   批次 {chunk_num} 重试也失败，丢弃 ({len(chunk)} 帧数据丢失)"
                 print(f"\r{msg}"); emit_progress_overwrite(msg)
                 for fpath in chunk:
                     frame_num = int(fpath.stem.split("_")[-1])
@@ -523,7 +523,7 @@ def classify_frames_apex(
                         
                     })
         except Exception as e:
-            msg = f"  ⚠️ 批次 {chunk_num} 请求失败: {str(e)[:100]}"
+            msg = f"  ️ 批次 {chunk_num} 请求失败: {str(e)[:100]}"
             print(f"\r{msg}"); emit_progress_overwrite(msg)
             for fpath in chunk:
                 frame_num = int(fpath.stem.split("_")[-1])
@@ -533,20 +533,20 @@ def classify_frames_apex(
                 })
 
         # 更新百分比进度
-        emit_status(f"👁️ 读取 UI 数据... {pct}%")
+        emit_status(f"️ 读取 UI 数据... {pct}%")
 
     # ── 按帧号排序 ──
     all_labels.sort(key=lambda x: x["frame"])
 
     # ── 时间戳修正 ──
-    # ── ★ 核心：检测战斗事件（只加 _changes / _event，不做 action 判断）──
+    # ──  核心：检测战斗事件（只加 _changes / _event，不做 action 判断）──
     all_labels = detect_combat_events(all_labels)
 
     # ── 统计 ──
     combat_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("in_combat"))
     kill_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("kill_occurred"))
     msg = (
-        f"  🎉 完成: {len(all_labels)} 帧 | "
+        f"   完成: {len(all_labels)} 帧 | "
         f"战斗={combat_frames} 击杀={kill_frames}"
     )
     print(msg); emit_progress(msg)

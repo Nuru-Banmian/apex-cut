@@ -194,7 +194,7 @@ if (-not $frontendReady) {
 # ═══════════════════════════════════
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host "  🎬 AutoCut Agent 已启动!" -ForegroundColor White
+Write-Host "   AutoCut Agent 已启动!" -ForegroundColor White
 Write-Host ""
 Write-Host "  前端页面 : http://localhost:$FrontendPort" -ForegroundColor Cyan
 Write-Host "  API 文档 : http://localhost:$BackendPort/docs"   -ForegroundColor Cyan

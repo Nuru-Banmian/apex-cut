@@ -1,8 +1,8 @@
 const PHASES = [
-  { key: 'setup',      label: '准备', icon: '📹' },
-  { key: 'strategy',   label: '策略', icon: '🎯' },
-  { key: 'processing', label: '进度', icon: '⚡' },
-  { key: 'result',     label: '结果', icon: '✅' },
+  { key: 'setup',      label: '准备', icon: '' },
+  { key: 'strategy',   label: '策略', icon: '' },
+  { key: 'processing', label: '进度', icon: '' },
+  { key: 'result',     label: '结果', icon: '' },
 ]
 
 export default function NavRail({ phase }) {
