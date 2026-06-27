@@ -362,11 +362,8 @@ def _run_vision_analysis(frame_files: list, sample_count: int, interval: float,
 # ═══════════════════════════════════════════════════════════════
 
 def _auto_interval(duration: float) -> float:
-    if duration <= 60: return 1.0
-    if duration <= 180: return 2.0
-    if duration <= 600: return 3.0
-    if duration <= 1200: return 4.0
-    return 5.0
+    """默认抽帧间隔 — 固定 1s（前端高级设置可覆盖）."""
+    return 1.0
 
 
 def _fallback_vision_key(state: dict) -> str:

@@ -240,6 +240,7 @@ export default function App() {
         if (data.status === 'done') {
           es.close()
           sseRef.current = null
+          setDownloadUrl(`/api/tasks/${tid}/download`)  // ★ 先设 URL，再切 phase，避免闪烁源视频
           setTaskStatus('done')
           fetchResult()
         } else if (data.status === 'failed') {
@@ -266,7 +267,7 @@ export default function App() {
           if (data.review_score != null) setReviewScore(data.review_score)
           if (data.status === 'done') {
             clearInterval(pollTimerRef.current); pollTimerRef.current = null
-            setTaskStatus('done'); fetchResult()
+            setDownloadUrl(`/api/tasks/${tid2}/download`); setTaskStatus('done'); fetchResult()
           } else if (data.status === 'failed') {
             clearInterval(pollTimerRef.current); pollTimerRef.current = null
             setTaskStatus('failed'); setError(data.error || '未知错误')
@@ -300,7 +301,17 @@ export default function App() {
       const resp = await fetch(`/api/tasks/${tid}/manifest`)
       const data = await resp.json()
       setManifest(data)
-      const clipList = data.clips || []
+      // 确保每个 clip 都有必需的字段，避免前端崩溃
+      const clipList = (data.clips || []).map(c => ({
+        index: c.index ?? 0,
+        file: c.file ?? '',
+        thumb: c.thumb ?? '',
+        start: c.start ?? 0,
+        end: c.end ?? 0,
+        reason: c.reason ?? '',
+        score: c.score ?? 0,
+        events: c.events ?? [],
+      }))
       setClips(clipList)
       if (clipList.length > 0) setCurrentClipIndex(0)
     } catch (e) {

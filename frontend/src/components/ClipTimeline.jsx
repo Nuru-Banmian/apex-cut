@@ -67,7 +67,9 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
         }}
       >
         {clips.map((clip, i) => {
-          const dur = clip.end - clip.start
+          const segStart = clip.start ?? 0
+          const segEnd = clip.end ?? 0
+          const dur = segEnd - segStart
           const isSelected = i === currentIndex
           const isDragging = i === dragIndex
           const isOver = i === dragOver
@@ -84,7 +86,7 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
               onDragOver={(e) => { e.preventDefault(); setDragOver(i) }}
               onDragEnd={handleDragEnd}
               onClick={() => onSelect(i)}
-              title={`片段 ${i+1}: ${clip.start.toFixed(0)}s-${clip.end.toFixed(0)}s | ${clip.reason || ''}`}
+              title={`片段 ${i+1}: ${segStart.toFixed(0)}s-${segEnd.toFixed(0)}s | ${clip.reason || ''}`}
               style={{
                 flexShrink: 0,
                 width: Math.max(80, dur * 3), // 1s = 3px，最小 80px

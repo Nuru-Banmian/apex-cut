@@ -417,12 +417,12 @@ def _apply_review_feedback(segments: list[dict], suggestions: str, issues: list[
 
 
 # ═══════════════════════════════════════════════════════════════
-# 裁剪执行 — 单次 FFmpeg 合并 + 无损切分独立片段
+# 裁剪执行 — 单次 FFmpeg 合并，直接产出成品
 # ═══════════════════════════════════════════════════════════════
 
 def _execute_cut(video_path: str, edit_plan: list[dict], target_ar: str | None,
                  review_round: int, out_dir: Path, output_name: str = "") -> dict:
-    """单次 FFmpeg 合并 → 再无损切分独立片段."""
+    """FFmpeg 合并片段 → 一个成品视频，不切分."""
     probe_info = _get_video_info(video_path)
     total_duration = probe_info["duration"] if probe_info else 0
 
@@ -430,126 +430,55 @@ def _execute_cut(video_path: str, edit_plan: list[dict], target_ar: str | None,
         return {"final_output": video_path, "plan_approved": True}
 
     tool = get_ffmpeg()
-    clips_dir = out_dir / "clips"
-    clips_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Step 1: 一次 FFmpeg 调用输出合并成品 ──
-    final_name = f"{output_name}.mp4" if output_name else f"final_merged_round_{review_round}.mp4"
-    merged_output = str(out_dir / final_name)
-    print(f"[✂️ 剪辑] 🎬 单次裁剪+拼接 {len(edit_plan)} 段 → {Path(merged_output).name}")
+    # ── 成品直接写入 results/ ──
+    results_dir = OUTPUT_DIR / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    final_name = f"{output_name}.mp4" if output_name else f"{Path(video_path).stem}_cut.mp4"
+    result_output = str(results_dir / final_name)
+    print(f"[✂️ 剪辑] 🎬 裁剪+拼接 {len(edit_plan)} 段 → {Path(result_output).name}")
 
     seg_total_dur = sum(s["end"] - s["start"] for s in edit_plan)
     def _trim_progress(pct):
         emit_status(f"✂️ 渲染中... {pct}% ({seg_total_dur:.0f}s 总输出)")
 
     emit_status(f"✂️ 渲染中... 0% ({seg_total_dur:.0f}s 总输出)")
-    trim_result = tool.trim(video_path, edit_plan, merged_output, progress_cb=_trim_progress)
+    trim_result = tool.trim(video_path, edit_plan, result_output, progress_cb=_trim_progress)
     if not trim_result.get("success"):
-        print(f"[✂️ 剪辑] ⚠️ 合并裁剪失败: {trim_result.get('error', '')[:100]}")
-        return {"final_output": video_path}
+        err_msg = trim_result.get('error', '')[:200]
+        print(f"[✂️ 剪辑] ⚠️ 裁剪失败: {err_msg}")
+        emit_status(f"❌ 裁剪失败: {err_msg[:60]}")
+        emit_progress(f"  ❌ FFmpeg 失败，返回原始视频")
+        return {"final_output": video_path, "plan_approved": True, "error": f"FFmpeg失败: {err_msg}"}
 
-    emit_status(f"✂️ 渲染完成 → 切分片段...")
-
-    # ── Step 2: 从合并成品无损切分独立片段 + 生成缩略图 ──
-    clip_files = []
-    thumb_files = []
-    cumulative_time = 0.0  # 在合并视频中的累计时间
-    thumbs_dir = clips_dir / "thumbs"
-    thumbs_dir.mkdir(parents=True, exist_ok=True)
-
-    for i, seg in enumerate(edit_plan):
-        seg_duration = seg["end"] - seg["start"]
-        clip_output = str(clips_dir / f"clip_{i+1:03d}_{seg['start']:.0f}s-{seg['end']:.0f}s.mp4")
-        thumb_output = str(thumbs_dir / f"thumb_{i+1:03d}.jpg")
-
-        if Path(clip_output).exists() and Path(thumb_output).exists():
-            print(f"  [{i+1}/{len(edit_plan)}] ✅ 已存在: {Path(clip_output).name}")
-            clip_files.append(clip_output)
-            thumb_files.append(thumb_output)
-            cumulative_time += seg_duration
-            emit_status(f"✂️ 切分中... ({i+1}/{len(edit_plan)})")
-            continue
-
-        # -ss -to -c copy 无损切分
-        result = tool._run([
-            "-ss", str(cumulative_time),
-            "-i", merged_output,
-            "-to", str(seg_duration),
-            "-c", "copy",
-            "-avoid_negative_ts", "make_zero",
-            clip_output,
-        ], timeout=120)
-
-        if result["success"]:
-            size_kb = Path(clip_output).stat().st_size / 1024 if Path(clip_output).exists() else 0
-            print(f"  [{i+1}/{len(edit_plan)}] ✅ {Path(clip_output).name} ({size_kb:.0f}KB)")
-            clip_files.append(clip_output)
-
-            # 提取缩略图：片段中点的一帧
-            thumb_result = tool._run([
-                "-ss", str(cumulative_time + seg_duration / 2),
-                "-i", merged_output,
-                "-vframes", "1",
-                "-q:v", "3",
-                thumb_output,
-            ], timeout=30)
-            if thumb_result["success"]:
-                thumb_files.append(thumb_output)
-            else:
-                thumb_files.append("")
-            cumulative_time += seg_duration  # 只在成功时推进
-        else:
-            print(f"  [{i+1}/{len(edit_plan)}] ❌ 切分失败: {result.get('error', '')[:100]}")
-            # 不推进 cumulative_time — 失败片段不在合并视频中
-
-        emit_status(f"✂️ 切分中... ({i+1}/{len(edit_plan)})")
-
-    # ── 保存方案清单 ──
-    # 直接从成功的 clip_files 构建（而非 zip edit_plan，避免失败片段错位）
-    manifest_clips = []
-    for i, f in enumerate(clip_files):
-        seg = edit_plan[i] if i < len(edit_plan) else {}
-        thumb_name = str(Path(thumb_files[i]).name) if i < len(thumb_files) and thumb_files[i] else ""
-        manifest_clips.append({
-            "index": i + 1,
-            "file": str(Path(f).name),
-            "thumb": thumb_name,
-            "start": seg.get("start", 0),
-            "end": seg.get("end", 0),
-            "reason": seg.get("reason", ""),
-            "score": seg.get("score", 0),
-            "events": seg.get("events", []),
-        })
-
+    # ── 写入 manifest（供前端展示片段信息）──
     manifest = {
         "video_path": video_path,
         "total_duration": total_duration,
         "target_aspect_ratio": target_ar,
         "review_round": review_round,
-        "clips": manifest_clips,
+        "merged_output": result_output,
+        "clips": [
+            {
+                "index": i + 1,
+                "start": seg["start"],
+                "end": seg["end"],
+                "reason": seg.get("reason", ""),
+                "score": seg.get("score", 0),
+                "events": seg.get("events", []),
+            }
+            for i, seg in enumerate(edit_plan)
+        ],
     }
     manifest_path = out_dir / "edit_manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as mf:
         json.dump(manifest, mf, ensure_ascii=False, indent=2)
-    print(f"[✂️ 剪辑] 📋 方案清单: {manifest_path}")
 
-    emit_status(f"✅ 裁剪完成: {len(clip_files)} 个片段")
-    emit_progress(f"  📦 {len(clip_files)} 个独立片段已保存到 {clips_dir}")
-
-    # ── 复制到结果库 ──
-    results_dir = OUTPUT_DIR / "results"
-    results_dir.mkdir(parents=True, exist_ok=True)
-    result_name = f"{output_name}.mp4" if output_name else f"result_{Path(video_path).stem}.mp4"
-    result_path = results_dir / result_name
-    try:
-        shutil.copy2(merged_output, result_path)
-        print(f"[✂️ 剪辑] 📦 结果已保存: {result_path}")
-    except Exception as e:
-        print(f"[✂️ 剪辑] ⚠️ 保存结果失败: {e}")
+    emit_status(f"✅ 裁剪完成 ({seg_total_dur:.0f}s)")
+    emit_progress(f"  📦 成品: {Path(result_output).name} ({seg_total_dur:.0f}s, results/)")
 
     return {
-        "final_output": merged_output,
-        "clip_files": clip_files,
+        "final_output": result_output,
         "manifest_path": str(manifest_path),
     }
 

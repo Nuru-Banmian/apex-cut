@@ -336,17 +336,13 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                     manifest_path = node_data.get("manifest_path", "")
                     if manifest_path:
                         _tasks[task_id]["manifest_path"] = manifest_path
-                    clip_files = node_data.get("clip_files", [])
-                    if clip_files:
-                        _tasks[task_id]["clip_files"] = clip_files
-                        _log(f"  🎬 {len(clip_files)} 个独立片段")
                     _push(f"剪辑完成",
                           log=f"━━━ ✂️ 剪辑 Agent 执行裁剪 ━━━",
                           review_round=rnd)
                     import os as _os
                     if _os.path.exists(final_out):
                         size_mb = _os.path.getsize(final_out) / 1048576
-                        _log(f"  📦 成品: {final_out} ({size_mb:.1f}MB)")
+                        _log(f"  📦 成品 ({len(plan)} 段合并): {Path(final_out).name} ({size_mb:.1f}MB)")
                 # 方案模式：制定/修改剪辑方案（不动刀）
                 else:
                     if draft:
@@ -946,13 +942,33 @@ def register_routes(app: FastAPI):
             import json
             return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
-        # 回退：从 edit_plan + final_output 构造简单 manifest
+        # 回退：从 clips 目录构造完整 manifest（含 start/end/events 等前端必需字段）
         out_dir = OUTPUT_DIR / task_id
         clips_dir = out_dir / "clips"
+        thumbs_dir = clips_dir / "thumbs"
         clips = []
         if clips_dir.exists():
             for f in sorted(clips_dir.glob("clip_*.mp4")):
-                clips.append({"file": f.name, "path": str(f.resolve())})
+                # 从文件名解析 start/end: clip_001_30s-45s.mp4
+                import re as _re
+                seg_match = _re.search(r'(\d+)s-(\d+)s', f.name)
+                start = float(seg_match.group(1)) if seg_match else 0
+                end = float(seg_match.group(2)) if seg_match else 0
+                idx_match = _re.search(r'clip_(\d+)', f.name)
+                idx = int(idx_match.group(1)) if idx_match else 0
+                thumb_name = f"thumb_{idx:03d}.jpg"
+                thumb = thumb_name if (thumbs_dir / thumb_name).exists() else ""
+                clips.append({
+                    "index": idx,
+                    "file": f.name,
+                    "path": str(f.resolve()),
+                    "thumb": thumb,
+                    "start": start,
+                    "end": end,
+                    "reason": "",
+                    "score": 0,
+                    "events": [],
+                })
 
         return {
             "task_id": task_id,
