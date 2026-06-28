@@ -223,7 +223,7 @@ export default function App() {
     const tid = taskIdRef.current
     if (!tid) return
 
-    const es = new EventSource(`/api/tasks/${tid}/stream`)
+    const es = new EventSource(`/api/tasks/${tid}/video`)
     sseRef.current = es
 
     es.onmessage = (evt) => {
@@ -241,7 +241,7 @@ export default function App() {
         if (data.status === 'done') {
           es.close()
           sseRef.current = null
-          setStreamUrl(`/api/tasks/${tid}/stream`)
+          setStreamUrl(`/api/tasks/${tid}/video`)
           setDownloadUrl(`/api/tasks/${tid}/download`)
           setTaskStatus('done')
           fetchResult()
@@ -285,7 +285,7 @@ export default function App() {
       const resp = await fetch(`/api/tasks/${tid}/result`)
       const data = await resp.json()
       setAnalysis(data.analysis || null)
-      setStreamUrl(`/api/tasks/${tid}/stream`)
+      setStreamUrl(`/api/tasks/${tid}/video`)
       setDownloadUrl(`/api/tasks/${tid}/download`)
     } catch (e) {
       console.error('获取结果失败:', e)

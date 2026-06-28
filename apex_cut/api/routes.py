@@ -784,7 +784,7 @@ def register_routes(app: FastAPI):
             analysis=analysis,
         )
 
-    @app.get("/api/tasks/{task_id}/stream")
+    @app.get("/api/tasks/{task_id}/video")
     async def stream_result(task_id: str, request: Request):
         """流式播放剪辑成品（支持 Range 请求，可拖拽进度条）."""
         if task_id not in _tasks:

@@ -10,14 +10,13 @@
 2. 视觉 AI 逐帧读取伤害数字，自动识别战斗片段
 3. ±4s 前后摇裁剪，FFmpeg 合并导出成品
 
-基于 LangGraph 多智能体编排。视觉 LLM 负责读屏输出结构化 `numbers`，代码层自动纠错（伤害差值 >30 → 判定战斗），不依赖 LLM 的主观判断。
+基于 LangGraph 多智能体编排。视觉 LLM 对比相邻帧的伤害数字变化，全权判定每帧是否有战斗发生，代码层仅做格式校验和片段裁剪。
 
 ## 功能
 
--  专为 Apex Legends 设计，检测"造成伤害"事件定位战斗
--  ROI 区域框选，精准读取伤害/击杀/助攻数字，大幅提升准确率
-- ️ 视觉 AI 读取游戏 UI 数据，输出结构化 `numbers`，无需 OCR
--  代码层自动纠错：LLM 读错数字时自动修正事件判定
+-  专为 Apex Legends 设计，视觉 AI 检测伤害数字变化定位战斗
+-  ROI 区域框选，精准定位伤害数字区域，大幅提升准确率
+- ️ 视觉 LLM 逐帧对比数字，输出结构化 `numbers` + `event`，无需 OCR
 -  侧挂缓存，同一视频重跑秒级跳过分析
 -  FFmpeg 自动 GPU 加速（NVENC/QSV/AMF）
 -  Web UI + 命令行两种使用方式
@@ -79,7 +78,8 @@ FFMPEG_HWACCEL=auto            # 硬件加速：auto / cuda / qsv / amf / none
 | POST | `/api/tasks/create` | 提交剪辑任务 |
 | GET | `/api/tasks/{id}/stream` | SSE 实时进度 |
 | GET | `/api/tasks/{id}/result` | 获取结果 |
-| GET | `/api/tasks/{id}/stream` | 流式播放成品 |
+| GET | `/api/tasks/{id}/video` | 流式播放成品 |
+| GET | `/api/tasks/{id}/download` | 下载成品 |
 | POST | `/api/upload` | 上传视频素材 |
 | GET | `/api/materials` | 素材列表 |
 | GET | `/api/config` | 当前配置 |

@@ -124,7 +124,7 @@ VISION_APEX_HUMAN = """以下是 {frame_count} 帧 Apex Legends 画面（第 {ch
 
 
 # ═══════════════════════════════════════════════════════════════
-# v2 简化 — 战斗事件由 LLM 直接判断，代码不再做数字对比
+# v3 — LLM 全权判断 combat/none，代码仅做格式校验 + note 生成
 # ═══════════════════════════════════════════════════════════════
 
 # ── 合法值白名单 ──
@@ -133,17 +133,14 @@ _VALID_CONFIDENCE = {"high", "medium", "low"}
 
 
 def parse_combat_result(llm_json: dict, frame_num: int, interval: float) -> dict:
-    """解析 LLM 返回的 JSON → 标准 frame_label（含 numbers 校验 + event 纠错 + note 生成）.
+    """解析 LLM 返回的 JSON → 标准 frame_label.
 
-    LLM 输出格式 (v3):
-      {"frame": 2, "event": "kill", "confidence": "high",
-       "numbers": {"kills": [0,1], "assists": [0,0], "damage": [0,234]}}
+    LLM 全权判断 event（combat / none），代码只做格式校验和 note 生成，
+    不再覆盖 LLM 的判断结果。
 
-    numbers 字段由代码校验：
-      - kills[1] > kills[0] → 强制 event=kill（覆盖 LLM 误判）
-      - assists[1] > assists[0] → 强制 event=assist
-      - damage[1] - damage[0] > 30 且击杀助攻未变 → event=combat
-      - note 由代码根据 numbers 生成，不再依赖 LLM 写文字
+    LLM 输出格式:
+      {"frame": 2, "event": "combat", "confidence": "high",
+       "numbers": {"kills": [null,null], "assists": [null,null], "damage": [0,234]}}
     """
     # ── numbers 解析 ──
     numbers = llm_json.get("numbers", {})
@@ -167,16 +164,9 @@ def parse_combat_result(llm_json: dict, frame_num: int, interval: float) -> dict
     assists = _safe_pair("assists")
     damage = _safe_pair("damage")
 
-    # ── 根据 numbers 纠错 event（仅 combat / none）──
+    # ── event 仅做白名单校验，信任 LLM 判断 ──
     event = llm_json.get("event", "none")
     if not isinstance(event, str) or event not in _VALID_EVENTS:
-        event = "none"
-
-    # 伤害增加 > 30 → combat
-    if damage[0] is not None and damage[1] is not None and (damage[1] - damage[0]) > 30:
-        event = "combat"
-    # 伤害可读且未增加 → none
-    elif damage[0] is not None and damage[1] is not None:
         event = "none"
 
     # ── confidence 校验 ──
