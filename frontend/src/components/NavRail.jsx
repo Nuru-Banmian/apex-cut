@@ -1,6 +1,5 @@
 const PHASES = [
   { key: 'setup',      label: '准备', icon: '' },
-  { key: 'strategy',   label: '策略', icon: '' },
   { key: 'processing', label: '进度', icon: '' },
   { key: 'result',     label: '结果', icon: '' },
 ]
@@ -9,15 +8,15 @@ export default function NavRail({ phase }) {
   const currentIdx = PHASES.findIndex(p => p.key === phase)
 
   return (
-    <nav style={{
+    <nav className="nav-rail" style={{
       width: 'var(--nav-rail-w)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       padding: 'var(--space-4) 0',
       gap: 'var(--space-1)',
-      borderRight: '1px solid var(--border-subtle)',
-      background: 'var(--bg-surface)',
+      borderRight: '1px solid var(--border)',
+      background: 'var(--card)',
       flexShrink: 0,
     }}>
       {PHASES.map((p, i) => {
@@ -39,7 +38,7 @@ export default function NavRail({ phase }) {
             <span style={{
               fontSize: '9px',
               fontWeight: isActive ? 'var(--font-semibold)' : 'var(--font-normal)',
-              color: isActive ? 'var(--accent)' : 'var(--text-tertiary)',
+              color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
             }}>
               {p.label}
             </span>

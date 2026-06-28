@@ -20,8 +20,8 @@ class ErrorBoundary extends Component {
           alignItems: 'center',
           justifyContent: 'center',
           height: '100vh',
-          background: 'var(--bg-primary)',
-          color: 'var(--text-primary)',
+          background: 'var(--background)',
+          color: 'var(--foreground)',
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 'var(--space-4)' }}></div>
@@ -56,7 +56,7 @@ class ErrorBoundary extends Component {
 
 function determinePhase(taskStatus) {
   if (taskStatus === 'running') return 'processing'
-  if (taskStatus === 'done' || taskStatus === 'failed') return 'result'
+  // v2: done/failed 都回到 setup 页面，结果显示在 SetupPanel 顶部
   return 'setup'
 }
 
@@ -64,11 +64,13 @@ export default function App() {
   // ── 文本模型配置 ──
   const [textProvider, setTextProvider] = useState('deepseek')
   const [textApiKey, setTextApiKey] = useState('')
+  const [textApiBase, setTextApiBase] = useState('')
   const [textModel, setTextModel] = useState('deepseek-v4-pro')
 
   // ── 视觉模型配置 ──
   const [visionProvider, setVisionProvider] = useState('zhipu')
   const [visionApiKey, setVisionApiKey] = useState('')
+  const [visionApiBase, setVisionApiBase] = useState('')
   const [visionModel, setVisionModel] = useState('GLM-4.6V')
 
   // ── 通用 ──
@@ -94,7 +96,6 @@ export default function App() {
   const [taskId, setTaskId] = useState('')
   const [taskStatus, setTaskStatus] = useState('idle')
   const [progress, setProgress] = useState('')
-  const [reviewRound, setReviewRound] = useState(0)
   const [error, setError] = useState('')
 
   // ── Director 策略预览 ──
@@ -104,17 +105,19 @@ export default function App() {
 
   // ── Results ──
   const [analysis, setAnalysis] = useState(null)
-  const [reviewScore, setReviewScore] = useState(null)
-  const [reviewIssues, setReviewIssues] = useState([])
   const [downloadUrl, setDownloadUrl] = useState('')
+  const [streamUrl, setStreamUrl] = useState('')
   const [logLines, setLogLines] = useState([])
 
   // ── 高级设置 ──
   const [advancedSettings, setAdvancedSettings] = useState({
     frameInterval: 0,
     maxVisionFrames: 0,
-    maxReviewRounds: 6,
   })
+
+  // ── ROI 编辑（v2）──
+  const [editMode, setEditMode] = useState(false)
+  const [roiConfig, setRoiConfig] = useState([])  // [{type_id, rect:{x,y,w,h}, label, custom_instruction}]
 
   // ── VideoStage 数据 ──
   const [editPlanForTimeline, setEditPlanForTimeline] = useState([])
@@ -141,7 +144,7 @@ export default function App() {
         const data = await resp.json()
         if (data.success) setMaterials(data.materials || [])
       }
-    } catch (_) { }
+    } catch (e) { console.warn('加载素材库失败:', e) }
     setLoadingLib(false)
   }, [])
 
@@ -234,13 +237,12 @@ export default function App() {
           }
         }
         if (data.progress) setProgress(data.progress)
-        if (data.review_round != null) setReviewRound(data.review_round)
-        if (data.review_score != null) setReviewScore(data.review_score)
 
         if (data.status === 'done') {
           es.close()
           sseRef.current = null
-          setDownloadUrl(`/api/tasks/${tid}/download`)  //  先设 URL，再切 phase，避免闪烁源视频
+          setStreamUrl(`/api/tasks/${tid}/stream`)
+          setDownloadUrl(`/api/tasks/${tid}/download`)
           setTaskStatus('done')
           fetchResult()
         } else if (data.status === 'failed') {
@@ -263,10 +265,9 @@ export default function App() {
           if (!resp.ok) return
           const data = await resp.json()
           if (data.progress) setProgress(data.progress)
-          setReviewRound(data.review_round)
-          if (data.review_score != null) setReviewScore(data.review_score)
           if (data.status === 'done') {
             clearInterval(pollTimerRef.current); pollTimerRef.current = null
+            setStreamUrl(`/api/tasks/${tid2}/stream`)
             setDownloadUrl(`/api/tasks/${tid2}/download`); setTaskStatus('done'); fetchResult()
           } else if (data.status === 'failed') {
             clearInterval(pollTimerRef.current); pollTimerRef.current = null
@@ -283,9 +284,8 @@ export default function App() {
     try {
       const resp = await fetch(`/api/tasks/${tid}/result`)
       const data = await resp.json()
-      setReviewScore(data.review_score)
-      setReviewIssues(data.review_issues || [])
       setAnalysis(data.analysis || null)
+      setStreamUrl(`/api/tasks/${tid}/stream`)
       setDownloadUrl(`/api/tasks/${tid}/download`)
     } catch (e) {
       console.error('获取结果失败:', e)
@@ -365,6 +365,7 @@ export default function App() {
           target_aspect_ratio: targetAspect || null,
           text_provider: textProvider,
           text_api_key: textApiKey,
+          text_api_base: textApiBase,
           text_model: textModel,
         }),
       })
@@ -399,17 +400,17 @@ export default function App() {
           target_aspect_ratio: targetAspect || null,
           text_provider: textProvider,
           text_api_key: textApiKey,
+          text_api_base: textApiBase,
           text_model: textModel,
           vision_provider: visionProvider,
           vision_api_key: visionApiKey,
+          vision_api_base: visionApiBase,
           vision_model: visionModel,
           frame_interval: advancedSettings.frameInterval,
           max_vision_frames: advancedSettings.maxVisionFrames,
-          max_review_rounds: advancedSettings.maxReviewRounds,
+          roi_config: roiConfig,
           director_confirmed: true,
           confirmed_content_type: 'apex',
-          confirmed_segment_strategy: presetStrategy,
-          confirmed_review_criteria: [],
           confirmed_edit_style: '击杀集锦',
           confirmed_editing_notes: '跳过Director，固定策略',
         }),
@@ -459,17 +460,17 @@ export default function App() {
           target_aspect_ratio: targetAspect || null,
           text_provider: textProvider,
           text_api_key: textApiKey,
+          text_api_base: textApiBase,
           text_model: textModel,
           vision_provider: visionProvider,
           vision_api_key: visionApiKey,
+          vision_api_base: visionApiBase,
           vision_model: visionModel,
           frame_interval: advancedSettings.frameInterval,
           max_vision_frames: advancedSettings.maxVisionFrames,
-          max_review_rounds: advancedSettings.maxReviewRounds,
+          roi_config: roiConfig,
           director_confirmed: true,
           confirmed_content_type: contentType || 'apex',
-          confirmed_segment_strategy: editedStrategy,
-          confirmed_review_criteria: directorResult?.review_criteria || [],
           confirmed_edit_style: directorResult?.edit_style || '',
           confirmed_editing_notes: directorResult?.editing_notes || '',
         }),
@@ -499,6 +500,7 @@ export default function App() {
     setAnalysis(null); setReviewScore(null); setReviewIssues([])
     setDownloadUrl(''); setLogLines([]); setEditPlanForTimeline([])
     setDirectorResult(null); setStrategyLocked(false)
+    setEditMode(false); setRoiConfig([])
   }
 
   // ── 阶段判定 ──
@@ -539,6 +541,11 @@ export default function App() {
               onSelectClip={handleSelectClip}
               onReorderClips={handleReorderClips}
               taskId={taskId}
+              editMode={editMode}
+              onToggleEditMode={() => setEditMode(!editMode)}
+              videoFileName={fileName}
+              roiConfig={roiConfig}
+              onChangeRoiConfig={setRoiConfig}
             />
             <SidePanel
               phase={phase}
@@ -546,19 +553,22 @@ export default function App() {
               materials={materials} loadingLib={loadingLib} loadMaterials={loadMaterials}
               videoPath={videoPath} setVideoPath={setVideoPath}
               fileName={fileName} setFileName={setFileName}
+              requirement={requirement} setRequirement={setRequirement}
               keyVerified={keyVerified} uploadError={uploadError} setUploadError={setUploadError}
+              downloadUrl={downloadUrl}
+              streamUrl={streamUrl}
               outputName={outputName} setOutputName={setOutputName}
               onDirectStart={handleDirectStart}
               resultStreamUrl={resultStreamUrl} setResultStreamUrl={setResultStreamUrl}
+              /* ── ROI 配置（v2）── */
+              roiConfig={roiConfig}
+              editMode={editMode} onToggleEditMode={() => setEditMode(!editMode)}
+              onChangeRoiConfig={setRoiConfig}
               /* ── ProgressPanel props ── */
               progress={progress}
-              reviewRound={reviewRound}
               error={error}
               logLines={logLines}
               /* ── ResultPanel props ── */
-              score={reviewScore}
-              issues={reviewIssues}
-              downloadUrl={downloadUrl}
               taskId={taskId}
               onReset={handleReset}
               clips={clips}

@@ -10,7 +10,7 @@ export default function AppShell({ phase, gpuStatus, onSettings, children }) {
       overflow: 'hidden',
     }}>
       <TopBar gpuStatus={gpuStatus} onSettings={onSettings} />
-      <div style={{
+      <div className="app-main" style={{
         flex: 1,
         display: 'flex',
         overflow: 'hidden',

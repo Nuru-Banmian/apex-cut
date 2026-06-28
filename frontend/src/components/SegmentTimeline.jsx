@@ -4,8 +4,8 @@ export default function SegmentTimeline({ segments, totalDuration }) {
   return (
     <div style={{
       height: 36,
-      borderTop: '1px solid var(--border-subtle)',
-      background: 'var(--bg-surface)',
+      borderTop: '1px solid var(--border)',
+      background: 'var(--card)',
       display: 'flex',
       alignItems: 'center',
       padding: '0 var(--space-3)',
@@ -47,7 +47,7 @@ export default function SegmentTimeline({ segments, totalDuration }) {
         display: 'flex',
         justifyContent: 'space-between',
         fontSize: '8px',
-        color: 'var(--text-tertiary)',
+        color: 'var(--muted-foreground)',
       }}>
         <span>0:00</span>
         <span>{_formatTime(totalDuration / 2)}</span>

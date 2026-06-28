@@ -39,9 +39,9 @@ def cache_loader_node(state: VideoEditState) -> dict:
     print(f"  ️ 帧标签: {len(frame_labels)}帧")
 
     # 帧标签统计
-    combat_frames = sum(1 for f in frame_labels if f.get("_changes", {}).get("in_combat"))
-    kill_frames = sum(1 for f in frame_labels if f.get("_changes", {}).get("kill_occurred"))
-    assist_frames = sum(1 for f in frame_labels if f.get("_changes", {}).get("assist_occurred"))
+    combat_frames = sum(1 for f in frame_labels if f.get("has_combat"))
+    kill_frames = sum(1 for f in frame_labels if f.get("event") == "kill")
+    assist_frames = sum(1 for f in frame_labels if f.get("event") == "assist")
     if combat_frames:
         print(f"  ️  战斗={combat_frames} 击杀={kill_frames} 助攻={assist_frames}")
 

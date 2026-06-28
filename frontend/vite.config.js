@@ -5,8 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    hmr: { host: 'localhost' },
     proxy: {
-      '/api': 'http://localhost:8000',
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        timeout: 600000,  // 10分钟 — 大视频上传不超时
+      },
     },
   },
   build: {

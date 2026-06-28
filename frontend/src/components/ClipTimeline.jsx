@@ -27,8 +27,8 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
 
   return (
     <div style={{
-      borderTop: '1px solid var(--border-subtle)',
-      background: 'var(--bg-surface)',
+      borderTop: '1px solid var(--border)',
+      background: 'var(--card)',
       padding: 'var(--space-3) var(--space-4)',
       userSelect: 'none',
     }}>
@@ -42,13 +42,13 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
         <span style={{
           fontSize: 'var(--text-xs)',
           fontWeight: 'var(--font-semibold)',
-          color: 'var(--text-tertiary)',
+          color: 'var(--muted-foreground)',
           textTransform: 'uppercase',
           letterSpacing: 0.5,
         }}>
            片段 ({clips.length}) · {fmtDuration(totalDuration)}
         </span>
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted-foreground)' }}>
           ↕ 拖拽排序 · 点击预览
         </span>
       </div>
@@ -98,17 +98,17 @@ export default function ClipTimeline({ clips, currentIndex, onSelect, onReorder,
                 padding: 0,
                 borderRadius: 'var(--radius-md)',
                 cursor: isDragging ? 'grabbing' : 'pointer',
-                border: `2px solid ${isSelected ? 'var(--accent)'
+                border: `2px solid ${isSelected ? 'var(--primary)'
                   : isOver ? 'rgba(99,102,241,0.4)'
-                  : 'var(--border-subtle)'}`,
+                  : 'var(--border)'}`,
                 opacity: isDragging ? 0.5 : 1,
                 transition: 'background var(--transition-fast), border var(--transition-fast)',
                 overflow: 'hidden',
                 position: 'relative',
                 minHeight: 72,
                 background: thumbUrl
-                  ? `url(${thumbUrl}) center/cover no-repeat, var(--bg-primary)`
-                  : isSelected ? 'var(--accent-subtle)' : 'var(--bg-primary)',
+                  ? `url(${thumbUrl}) center/cover no-repeat, var(--background)`
+                  : isSelected ? 'var(--primary)' : 'var(--background)',
               }}
             >
               {/* 缩略图上的渐变叠加 + 信息 */}

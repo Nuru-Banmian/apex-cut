@@ -10,7 +10,7 @@
     │   ├── transcript.json       # 语音转写 [{start, end, text, confidence}, ...]
     │   ├── silences.json         # 静音检测 [{start, end, duration}, ...]
     │   ├── energy.json           # 音频能量 {energy_per_second, peak_times}
-    │   ├── frame_labels.json     # 画面 UI 数据 [{frame, time_seconds, _changes, _event}, ...]
+    │   ├── frame_labels.json     # 画面分析结果 [{frame, time_seconds, has_combat, event, confidence, note}, ...]
     │   └── meta.json
     └── 教程.mp4
 
@@ -25,7 +25,7 @@ import shutil
 import time
 from pathlib import Path
 
-CACHE_VERSION = 3
+CACHE_VERSION = 8  # v8: 移除 kill/assist — 只剩 combat/none，仅用 damage_dealt 触发
 
 # 数据字段 → 文件名映射
 FIELD_FILES = {
@@ -46,7 +46,8 @@ def _cache_dir(video_path: str) -> Path | None:
 # Public API
 # ═══════════════════════════════════════════════════════════
 
-def has_cache(video_path: str, frame_interval: float = 0, max_vision_frames: int = 0) -> bool:
+def has_cache(video_path: str, frame_interval: float = 0, max_vision_frames: int = 0,
+              roi_hash: str = "") -> bool:
     """检查是否有该视频的分析缓存（meta.json 存在且视频未变 + 参数匹配）."""
     cache_dir = _cache_dir(video_path)
     if not cache_dir:
@@ -74,6 +75,10 @@ def has_cache(video_path: str, frame_interval: float = 0, max_vision_frames: int
         if (max_vision_frames > 0 and cached_max_frames > 0 and max_vision_frames != cached_max_frames):
             print(f"[ 缓存] ️ 最大帧数已变 ({cached_max_frames} → {max_vision_frames})，缓存失效")
             return False
+        # ROI 配置变了 → 缓存不适用
+        if roi_hash and meta.get("roi_hash") and roi_hash != meta.get("roi_hash"):
+            print(f"[ 缓存] ️ ROI 配置已变，缓存失效")
+            return False
     except Exception:
         return False
     return True
@@ -96,9 +101,14 @@ def load_cache(video_path: str) -> dict | None:
         print(f"[ 缓存] ️ meta.json 损坏: {e}")
         return None
 
-    # 检查版本兼容
+    # 检查版本兼容 — 不兼容则自动清除旧缓存并返回 None
     if meta.get("version", 0) != CACHE_VERSION:
-        print(f"[ 缓存] ️ 缓存版本不兼容 (v{meta.get('version')} → v{CACHE_VERSION})")
+        print(f"[ 缓存] ️ 缓存版本不兼容 (v{meta.get('version')} → v{CACHE_VERSION})，清除旧缓存...")
+        try:
+            shutil.rmtree(cache_dir)
+            print(f"[ 缓存] ️ 已清除: {cache_dir}")
+        except Exception as e:
+            print(f"[ 缓存] ️ 清除旧缓存失败: {e}")
         return None
 
     data = {}
@@ -130,7 +140,8 @@ def load_cache(video_path: str) -> dict | None:
     return None
 
 
-def save_cache(video_path: str, data: dict, frame_interval: float = 0, max_vision_frames: int = 0):
+def save_cache(video_path: str, data: dict, frame_interval: float = 0, max_vision_frames: int = 0,
+               roi_hash: str = ""):
     """保存分析结果到侧挂缓存目录（meta.json 最后写作为完成信号）."""
     cache_dir = _cache_dir(video_path)
     if not cache_dir:
@@ -178,6 +189,7 @@ def save_cache(video_path: str, data: dict, frame_interval: float = 0, max_visio
         "files": saved_files,
         "frame_interval": frame_interval,
         "max_vision_frames": max_vision_frames,
+        "roi_hash": roi_hash,
     }
     try:
         with open(cache_dir / "meta.json", "w", encoding="utf-8") as f:

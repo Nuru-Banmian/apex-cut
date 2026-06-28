@@ -48,7 +48,7 @@ python main.py run --video sample.mp4 --requirement "保留所有击杀，快节
 **Web UI 模式：**
 
 ```bash
-.\start.ps1              # Windows 一键启动
+.\start.bat              # Windows 一键启动
 # 后端 http://localhost:8000  |  前端 http://localhost:3000
 ```
 

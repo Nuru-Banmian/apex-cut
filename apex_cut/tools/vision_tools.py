@@ -1,9 +1,11 @@
-"""多模态视觉分析工具 — Apex Legends 专用画面数据提取.
+"""多模态视觉分析工具.
 
 工具列表:
-  - describe_frames: 逐帧描述（单帧单次调用，保留兼容）
-  - classify_frames_apex: Apex 专用：读取 UI 数据 + 代码检测战斗事件
+  - describe_frames: 逐帧画面描述（通用用途）
+  - classify_frames_apex: (legacy v1) Apex UI 读数 + 代码事件检测 — v2 不再使用
+  - parse_combat_result: (v2) 将 LLM JSON 转换为标准 frame_label
 
+v2 战斗检测主线在 analyzer.py 的 _run_vision_analysis 中.
 """
 
 from __future__ import annotations
@@ -122,119 +124,99 @@ VISION_APEX_HUMAN = """以下是 {frame_count} 帧 Apex Legends 画面（第 {ch
 
 
 # ═══════════════════════════════════════════════════════════════
-# 战斗事件检测（纯代码）
+# v2 简化 — 战斗事件由 LLM 直接判断，代码不再做数字对比
 # ═══════════════════════════════════════════════════════════════
 
-def detect_combat_events(frame_labels: list[dict]) -> list[dict]:
-    """比较相邻帧 player_stats 数字变化，检测战斗事件.
+# ── 合法值白名单 ──
+_VALID_EVENTS = {"combat", "none"}
+_VALID_CONFIDENCE = {"high", "medium", "low"}
 
-    数据源: 右上角统计面板 — 人头/助攻/小队击杀/伤害 数字。
-    伤害增加 = 正在交火，人头增加 = 击杀。
+
+def parse_combat_result(llm_json: dict, frame_num: int, interval: float) -> dict:
+    """解析 LLM 返回的 JSON → 标准 frame_label（含 numbers 校验 + event 纠错 + note 生成）.
+
+    LLM 输出格式 (v3):
+      {"frame": 2, "event": "kill", "confidence": "high",
+       "numbers": {"kills": [0,1], "assists": [0,0], "damage": [0,234]}}
+
+    numbers 字段由代码校验：
+      - kills[1] > kills[0] → 强制 event=kill（覆盖 LLM 误判）
+      - assists[1] > assists[0] → 强制 event=assist
+      - damage[1] - damage[0] > 30 且击杀助攻未变 → event=combat
+      - note 由代码根据 numbers 生成，不再依赖 LLM 写文字
     """
-    if not frame_labels:
-        return []
+    # ── numbers 解析 ──
+    numbers = llm_json.get("numbers", {})
+    if not isinstance(numbers, dict):
+        numbers = {}
 
-    enriched = []
-    prev_valid = None
+    def _safe_pair(key: str) -> list:
+        """提取 [prev, curr]，保证是两个元素的 int/None 列表."""
+        pair = numbers.get(key)
+        if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+            return [None, None]
+        result = []
+        for v in pair[:2]:
+            if isinstance(v, (int, float)) and v >= 0:
+                result.append(int(v))
+            else:
+                result.append(None)
+        return result
 
-    for curr in frame_labels:
-        curr = dict(curr)
-        curr["_changes"] = {}
-        curr["_event"] = None
+    kills = _safe_pair("kills")
+    assists = _safe_pair("assists")
+    damage = _safe_pair("damage")
 
-        stats = curr.get("player_stats") or {}
-        curr_kills = stats.get("kills")
-        curr_assists = stats.get("assists")
-        curr_team_kills = stats.get("team_kills")
-        curr_damage = stats.get("damage")
+    # ── 根据 numbers 纠错 event（仅 combat / none）──
+    event = llm_json.get("event", "none")
+    if not isinstance(event, str) or event not in _VALID_EVENTS:
+        event = "none"
 
-        #  首个有效帧：如果已有击杀/高伤害，说明战斗发生在抽帧覆盖之前
-        if prev_valid is None and (curr_kills is not None or curr_damage is not None):
-            if curr_kills is not None and curr_kills > 0:
-                curr["_changes"]["kill_occurred"] = True
-                curr["_changes"]["kills_added"] = curr_kills
-                curr["_changes"]["in_combat"] = True
-                curr["_event"] = "kill"
-            if curr_damage is not None and curr_damage >= 100:
-                curr["_changes"]["damage_dealt"] = min(curr_damage, 499)
-                curr["_changes"]["in_combat"] = True
-                if not curr["_event"]:
-                    curr["_event"] = "combat"
-            if curr_assists is not None and curr_assists > 0:
-                curr["_changes"]["assist_occurred"] = True
-                curr["_changes"]["assists_added"] = curr_assists
-                curr["_changes"]["in_combat"] = True
+    # 伤害增加 > 30 → combat
+    if damage[0] is not None and damage[1] is not None and (damage[1] - damage[0]) > 30:
+        event = "combat"
+    # 伤害可读且未增加 → none
+    elif damage[0] is not None and damage[1] is not None:
+        event = "none"
 
-        if prev_valid:
-            prev_stats = prev_valid.get("player_stats") or {}
-            prev_kills = prev_stats.get("kills")
-            prev_assists = prev_stats.get("assists")
-            prev_team_kills = prev_stats.get("team_kills")
-            prev_damage = prev_stats.get("damage")
+    # ── confidence 校验 ──
+    confidence = llm_json.get("confidence", "low")
+    if not isinstance(confidence, str) or confidence not in _VALID_CONFIDENCE:
+        confidence = "low"
 
-            # 人头增加 → 击杀
-            if curr_kills is not None and prev_kills is not None:
-                if curr_kills > prev_kills:
-                    if not curr["_changes"].get("kill_occurred"):
-                        curr["_event"] = "kill"
-                        curr["_changes"]["kill_occurred"] = True
-                    curr["_changes"]["kills_added"] = curr_kills - prev_kills
-                    curr["_changes"]["in_combat"] = True
+    # ── has_combat 自动派生 ──
+    has_combat = event != "none"
 
-            # 助攻增加
-            if curr_assists is not None and prev_assists is not None:
-                if curr_assists > prev_assists:
-                    curr["_changes"]["assist_occurred"] = True
-                    curr["_changes"]["assists_added"] = curr_assists - prev_assists
-                    curr["_changes"]["in_combat"] = True
+    # ── 代码生成 note ──
+    note = _build_note(kills, assists, damage)
 
-            # 小队击杀增加但人头没同步增加 → 队友单独击杀
-            if curr_team_kills is not None and prev_team_kills is not None:
-                if curr_team_kills > prev_team_kills:
-                    tk_added = curr_team_kills - prev_team_kills
-                    kills_added = curr["_changes"].get("kills_added", 0)
-                    teammate_only = tk_added - kills_added
-                    if teammate_only > 0:
-                        curr["_changes"]["teammate_kills"] = teammate_only
-                        if not curr["_changes"].get("in_combat"):
-                            curr["_changes"]["in_combat"] = True
-
-            # 伤害增加 → 正在交火
-            if curr_damage is not None and prev_damage is not None:
-                dmg_delta = curr_damage - prev_damage
-                if 0 < dmg_delta < 500:
-                    curr["_changes"]["damage_dealt"] = dmg_delta
-                    curr["_changes"]["in_combat"] = True
-                    if not curr["_event"]:
-                        curr["_event"] = "combat"
-                elif dmg_delta >= 500:
-                    curr["_changes"]["damage_jump_suspicious"] = dmg_delta
-
-        # 更新"上一个有效帧"（有任意有效数据就记）
-        if curr_kills is not None or curr_damage is not None:
-            prev_valid = curr
-
-        enriched.append(curr)
-
-    return enriched
+    return {
+        "frame": frame_num,
+        "time_seconds": round((frame_num - 1) * interval, 1),
+        "has_combat": has_combat,
+        "event": event,
+        "confidence": confidence,
+        "note": note,
+        "numbers": {
+            "kills": kills,
+            "assists": assists,
+            "damage": damage,
+        },
+    }
 
 
-def compute_frame_action(frame: dict) -> str:
-    """根据检测到的战斗事件判断帧的保留操作（不再依赖 scene_type）."""
-    changes = frame.get("_changes", {})
+def _build_note(kills: list, assists: list, damage: list) -> str:
+    """根据 numbers 生成标准 note — 只显示伤害变化."""
+    if damage[0] is not None and damage[1] is not None:
+        if damage[0] != damage[1]:
+            return f"伤害 {damage[0]}→{damage[1]}"
+        else:
+            return "数字无变化"
+    return "数字模糊，无变化"
 
-    # 战斗事件 → keep
-    if changes.get("in_combat"):
-        if changes.get("kill_occurred"):
-            return "keep"       # 击杀
-        if changes.get("damage_dealt", 0) >= 50:
-            return "keep"       # 交火造成明显伤害
-        if changes.get("assist_occurred"):
-            return "keep"       # 助攻
-        return "maybe"          # 只有少量伤害/队友击杀
 
-    # 无事件
-    return "maybe"
+# (deprecated) 保留函数签名兼容旧调用，v2 不再使用
+# detect_combat_events / compute_frame_action 已移除，战斗判断交给 LLM
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -378,7 +360,13 @@ def classify_frames_apex(
     sample_count: int = 20,
     chunk_size: int = 10,
 ) -> dict:
-    """Apex Legends 专用：逐帧读取右上角面板数字，代码检测战斗事件.
+    """[DEPRECATED v1] Apex Legends 专用：逐帧读取右上角面板数字，代码检测战斗事件.
+
+    ⚠️  v2 不再使用此工具。v2 战斗检测主线在 analyzer.py 的 _run_vision_analysis 中，
+    由 LLM 直接输出 {has_combat, event, confidence} 格式，不再走 player_stats 读数 + 代码 diff 流程。
+
+    保留此函数仅为向后兼容旧调用方，返回格式仍为 v1 的 player_stats 结构。
+    新代码请使用 analyzer_node 流程。
 
     Args:
         frame_dir: 抽帧图片目录
@@ -388,6 +376,13 @@ def classify_frames_apex(
     Returns:
         {success, frame_labels: [{frame, time_seconds, player_stats, _changes, _event}], frame_count}
     """
+    import warnings
+    warnings.warn(
+        "classify_frames_apex is deprecated (v1). "
+        "Use analyzer_node workflow for v2 combat detection.",
+        DeprecationWarning, stacklevel=2,
+    )
+    print("⚠️  [DEPRECATED] classify_frames_apex 是 v1 工具，请使用 analyzer_node (v2)")
     from langchain_core.messages import HumanMessage
 
     frame_path = Path(frame_dir)
@@ -538,13 +533,11 @@ def classify_frames_apex(
     # ── 按帧号排序 ──
     all_labels.sort(key=lambda x: x["frame"])
 
-    # ── 时间戳修正 ──
-    # ──  核心：检测战斗事件（只加 _changes / _event，不做 action 判断）──
-    all_labels = detect_combat_events(all_labels)
+    # ── (deprecated) v1 的 detect_combat_events 已移除，战斗判断交给 LLM ──
 
-    # ── 统计 ──
-    combat_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("in_combat"))
-    kill_frames = sum(1 for l in all_labels if l.get("_changes", {}).get("kill_occurred"))
+    # ── 统计（新字段）──
+    combat_frames = sum(1 for l in all_labels if l.get("has_combat"))
+    kill_frames = sum(1 for l in all_labels if l.get("event") == "kill")
     msg = (
         f"   完成: {len(all_labels)} 帧 | "
         f"战斗={combat_frames} 击杀={kill_frames}"

@@ -35,40 +35,36 @@ from apex_cut.cache import delete_cache, rename_cache
 class CreateTaskRequest(BaseModel):
     video_path: str
     user_requirement: str
-    output_name: str = ""              # 自定义输出文件名（不含扩展名）
-    content_type: str | None = None   # vlog/gaming/tutorial/interview/review/livestream/film/knowledge/life/auto
+    output_name: str = ""
+    content_type: str | None = None
     target_duration: float | None = None
     target_aspect_ratio: str | None = None
+    # ── ROI 配置（v2 新增）──
+    roi_config: list[dict] = []
     # ── 文本模型设置（独立）──
-    text_provider: str = "deepseek"   # deepseek / qwen / zhipu / openai / anthropic
+    text_provider: str = "deepseek"
     text_api_key: str = ""
-    text_model: str = ""              # 留空 = 使用平台默认
+    text_api_base: str = ""           # 自定义 Base URL（为空则用内置默认）
+    text_model: str = ""
     # ── 视觉模型设置（独立，可选）──
-    vision_provider: str = "zhipu"    # 视觉提供商
+    vision_provider: str = "zhipu"
     vision_api_key: str = ""
-    vision_model: str = ""            # 留空 = 使用平台默认
+    vision_api_base: str = ""         # 自定义 Base URL
+    vision_model: str = ""
     # 高级设置
     frame_interval: float = 0      # 0 = 自动
     max_vision_frames: int = 0     # 0 = 不限制
-    max_review_rounds: int = 6     # 审核最大轮数
     # ── Director 预览确认后传入（跳过 Director）──
     director_confirmed: bool = False
     confirmed_content_type: str = ""
-    confirmed_segment_strategy: dict | None = None   #  核心：用户确认的策略
-    confirmed_review_criteria: list[dict] | None = None
     confirmed_edit_style: str = ""
     confirmed_editing_notes: str = ""
-    # deprecated — kept for backward compat
-    confirmed_narrative_structure: dict | None = None
-    confirmed_editing_constraints: dict | None = None
 
 
 class TaskStatus(BaseModel):
     task_id: str
     status: str
     progress: str
-    review_round: int
-    review_score: float | None
     error: str | None
 
 
@@ -79,8 +75,6 @@ class AnalysisData(BaseModel):
 class TaskResult(BaseModel):
     task_id: str
     final_output: str | None
-    review_score: float | None
-    review_issues: list[str]
     analysis: AnalysisData | None = None
 
 
@@ -93,26 +87,25 @@ class DirectorPreviewRequest(BaseModel):
     text_provider: str = "deepseek"
     text_api_key: str = ""
     text_model: str = ""
+    # ── ROI 配置（v2 可选，Director 预览不必须）──
+    roi_config: list[dict] = []
 
 
 class DirectorPreviewResponse(BaseModel):
     success: bool
     content_type: str = ""
     content_type_name: str = ""
-    segment_strategy: dict = {}     #  核心：可执行片段策略
-    review_criteria: list[dict] = []
     edit_style: str = ""
     editing_notes: str = ""
     plan_summary: str = ""
     error: str = ""
-    # deprecated fields — kept for backward compat
-    narrative_structure: dict = {}
-    editing_constraints: dict = {}
 
 
 class RenameMaterialRequest(BaseModel):
     new_name: str
 
+class ValidatePathRequest(BaseModel):
+    path: str
 
 class SaveConfigRequest(BaseModel):
     """保存/测试 API 配置的请求体（Base URL 不暴露给前端，统一走 .env）."""
@@ -201,8 +194,6 @@ def _run_task(task_id: str, req: CreateTaskRequest):
         payload = {
             "status": _tasks[task_id]["status"],
             "progress": progress,
-            "review_round": _tasks[task_id].get("review_round", 0),
-            "review_score": _tasks[task_id].get("review_score"),
             "error": _tasks[task_id].get("error"),
         }
         if log:
@@ -237,33 +228,32 @@ def _run_task(task_id: str, req: CreateTaskRequest):
             "target_duration": req.target_duration,
             "target_aspect_ratio": req.target_aspect_ratio,
             "output_dir": out_dir,
-            "review_round": 0,
+            # ── ROI 配置（v2）──
+            "roi_config": req.roi_config or [],
             # 运行时 Key（仅存于 State，不落盘）
             "runtime_llm_provider": req.text_provider,
             "runtime_api_key": req.text_api_key,
-            "runtime_api_base": "",
+            "runtime_api_base": req.text_api_base or "",
             "runtime_vision_key": req.vision_api_key,
             "runtime_vision_provider": req.vision_provider,
+            "runtime_vision_api_base": req.vision_api_base or "",
             "runtime_text_model": req.text_model,
             "runtime_vision_model": req.vision_model,
             # 高级设置（前端传入）
             "frame_interval": req.frame_interval,
             "max_vision_frames": req.max_vision_frames,
-            "max_review_rounds": req.max_review_rounds,
             # Director 预览确认（跳过 Director）
             "director_plan_confirmed": req.director_confirmed,
         }
+        # 计算 ROI 哈希（缓存匹配用）
+        if req.roi_config:
+            from apex_cut.roi_types import hash_roi_config, roi_config_from_list
+            rois = roi_config_from_list(req.roi_config)
+            initial_state["roi_hash"] = hash_roi_config(rois)
         if req.director_confirmed:
             initial_state.update({
-                "segment_strategy": req.confirmed_segment_strategy or {},
-                "review_criteria": req.confirmed_review_criteria or [],
                 "edit_style": req.confirmed_edit_style,
                 "editing_notes": req.confirmed_editing_notes,
-                "director_plan": {
-                    "content_type_name": req.confirmed_content_type,
-                    "editing_notes": req.confirmed_editing_notes,
-                },
-                "director_plan_summary": "（用户已确认方案）",
             })
 
         draft_output = ""  # 跨节点追踪 editor 产出的文件路径
@@ -299,13 +289,11 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                 }
                 _tasks[task_id]["analysis"] = analysis_data
 
-                combat = sum(1 for f in fl if f.get("_changes", {}).get("in_combat"))
-                kills = sum(1 for f in fl if f.get("_changes", {}).get("kill_occurred"))
+                combat = sum(1 for f in fl if f.get("has_combat"))
                 _push(f" 缓存命中: {len(fl)}帧标签",
-                      log=f"━━━  缓存加载 — 跳过视频分析 ━━━",
-                      review_round=node_data.get("review_round", 0))
+                      log=f"━━━  缓存加载 — 跳过视频分析 ━━━")
                 _log(f"   全部数据从侧挂缓存加载")
-                _log(f"  ️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
+                _log(f"   帧标签: {len(fl)} 帧 (战斗={combat})")
 
             elif node_name == "analyzer":
                 fl = node_data.get("frame_labels", [])
@@ -315,67 +303,27 @@ def _run_task(task_id: str, req: CreateTaskRequest):
                 }
                 _tasks[task_id]["analysis"] = analysis_data
 
-                combat = sum(1 for f in fl if f.get("_changes", {}).get("in_combat"))
-                kills = sum(1 for f in fl if f.get("_changes", {}).get("kill_occurred"))
+                combat = sum(1 for f in fl if f.get("has_combat"))
                 _push(f"分析完成: {len(fl)}帧标签",
-                      log=f"━━━  分析 Agent 完成 ━━━",
-                      review_round=node_data.get("review_round", 0))
-                _log(f"  ️ 帧标签: {len(fl)} 帧 (战斗={combat} 击杀={kills})")
+                      log=f"━━━  分析 Agent 完成 ━━━")
+                _log(f"   帧标签: {len(fl)} 帧 (战斗={combat})")
 
             elif node_name == "editor":
                 plan = node_data.get("edit_plan", [])
                 final_out = node_data.get("final_output", "")
-                draft = node_data.get("draft_output", "")
-                rnd = node_data.get("review_round", 0)
 
-                # 裁剪模式：Reviewer 批准后执行 FFmpeg
                 if final_out:
                     draft_output = final_out
                     _tasks[task_id]["final_output"] = final_out
-                    # 保存 manifest 路径供后续 API 使用
                     manifest_path = node_data.get("manifest_path", "")
                     if manifest_path:
                         _tasks[task_id]["manifest_path"] = manifest_path
                     _push(f"剪辑完成",
-                          log=f"━━━ ️ 剪辑 Agent 执行裁剪 ━━━",
-                          review_round=rnd)
+                          log=f"━━━  剪辑 Agent 执行裁剪 ━━━")
                     import os as _os
                     if _os.path.exists(final_out):
                         size_mb = _os.path.getsize(final_out) / 1048576
                         _log(f"   成品 ({len(plan)} 段合并): {Path(final_out).name} ({size_mb:.1f}MB)")
-                # 方案模式：制定/修改剪辑方案（不动刀）
-                else:
-                    if draft:
-                        draft_output = draft
-                        _tasks[task_id]["final_output"] = draft
-                    _push(f"剪辑方案第{rnd}轮: {len(plan)}段",
-                          log=f"━━━ ️ 剪辑 Agent 制定方案 第 {rnd} 轮 ━━━",
-                          review_round=rnd)
-                    _log(f"   保留 {len(plan)} 个片段（等待 Reviewer 审查）")
-                    if draft:
-                        import os as _os
-                        size_mb = _os.path.getsize(draft) / 1048576 if _os.path.exists(draft) else 0
-                        _log(f"   输出: {draft} ({size_mb:.1f}MB)")
-
-            elif node_name == "reviewer":
-                approved = node_data.get("review_approved", False)
-                plan_approved = node_data.get("plan_approved", False)
-                issues = node_data.get("review_issues", [])
-                score = 100.0 if approved else 0.0
-                _push(f"审查: {' 通过' if approved else ' 不通过'}",
-                      log=f"━━━  审核 Agent ━━━",
-                      review_score=score)
-                _log(f"   结果: {' 方案通过 → 允许裁剪' if approved else ' 方案需修改 → 返回 Editor'}")
-                for iss in issues[:5]:
-                    _log(f"  ️ {iss[:100]}")
-
-                _tasks[task_id].update({
-                    "final_output": draft_output,
-                    "review_score": score,
-                    "review_issues": issues,
-                    "review_approved": approved,
-                })
-                push_event(task_id, {"review_score": score})
 
         _push(" 全部完成", log="━━━  剪辑任务完成 ━━━", status="done")
 
@@ -443,6 +391,20 @@ def register_routes(app: FastAPI):
         """返回所有支持的 AI 平台及其文本/视觉模型列表."""
         return {"success": True, "providers": get_providers_for_frontend()}
 
+    # ── ROI 类型预设 ──
+
+    @app.get("/api/roi-types")
+    async def get_roi_types():
+        """返回所有可选的 ROI 类型预设（供前端渲染选择列表）."""
+        from apex_cut.roi_types import ROI_TYPES
+        return {
+            "success": True,
+            "types": [
+                {"id": t.id, "name": t.name, "icon": t.icon, "instruction": t.instruction}
+                for t in ROI_TYPES
+            ],
+        }
+
     # ── 配置持久化 ──
 
     @app.get("/api/config")
@@ -458,7 +420,6 @@ def register_routes(app: FastAPI):
             return {"success": saved, "message": "配置已保存到 .env" if saved else "无新配置需要保存"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"保存失败: {e}")
-
     @app.post("/api/config/test")
     async def test_api_key(req: SaveConfigRequest):
         """测试 API Key 是否可用（发送一条最小请求验证连通性）."""
@@ -467,8 +428,9 @@ def register_routes(app: FastAPI):
 
         provider = req.llm_provider or "deepseek"
         api_key = ""
+        api_base = ""
 
-        # 根据提供商获取对应的 key，base_url 统一走 .env 配置
+        # 根据提供商获取对应的 key 和 base_url
         if provider == "deepseek":
             api_key = req.deepseek_api_key
             api_base = app_settings.deepseek_base_url
@@ -481,6 +443,10 @@ def register_routes(app: FastAPI):
         elif provider == "anthropic":
             api_key = req.anthropic_api_key
             api_base = ""
+        else:
+            # 自定义 provider — 从 SavedConfigRequest 的扩展字段取
+            api_key = getattr(req, 'deepseek_api_key', '')  # 复用字段传 key
+            api_base = getattr(req, 'deepseek_api_key', '') and app_settings.deepseek_base_url
 
         if not api_key:
             raise HTTPException(status_code=400, detail=f"请先填写 {provider.upper()} API Key")
@@ -516,9 +482,6 @@ def register_routes(app: FastAPI):
             else:
                 hint = error_msg[:200]
             return {"success": False, "error": hint, "provider": provider}
-
-    class ValidatePathRequest(BaseModel):
-        path: str
 
     @app.post("/api/validate-path")
     async def validate_path(req: ValidatePathRequest):
@@ -718,8 +681,6 @@ def register_routes(app: FastAPI):
                 success=True,
                 content_type=result.get("content_type", ""),
                 content_type_name=result.get("content_type_name", ""),
-                segment_strategy=result.get("segment_strategy", {}),
-                review_criteria=result.get("review_criteria", []),
                 edit_style=result.get("edit_style", ""),
                 editing_notes=result.get("editing_notes", ""),
                 plan_summary=result.get("plan_summary", ""),
@@ -751,12 +712,8 @@ def register_routes(app: FastAPI):
             "task_id": task_id,
             "status": "pending",
             "progress": "排队中...",
-            "review_round": 0,
-            "review_score": None,
             "error": None,
             "final_output": None,
-            "final_subtitle": None,
-            "review_issues": [],
             "analysis": None,
         }
 
@@ -824,9 +781,45 @@ def register_routes(app: FastAPI):
         return TaskResult(
             task_id=task_id,
             final_output=task.get("final_output"),
-            review_score=task.get("review_score"),
-            review_issues=task.get("review_issues", []),
             analysis=analysis,
+        )
+
+    @app.get("/api/tasks/{task_id}/stream")
+    async def stream_result(task_id: str, request: Request):
+        """流式播放剪辑成品（支持 Range 请求，可拖拽进度条）."""
+        if task_id not in _tasks:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        task = _tasks[task_id]
+        output_path = task.get("final_output", "")
+        if not output_path or not Path(output_path).exists():
+            raise HTTPException(status_code=404, detail="成品文件不存在")
+
+        file_path = Path(output_path).resolve()
+        file_size = file_path.stat().st_size
+
+        range_header = request.headers.get("range")
+        if range_header:
+            start_str = range_header.replace("bytes=", "").split("-")[0]
+            start = int(start_str) if start_str else 0
+            end = min(start + 1048576 * 10, file_size - 1)  # 10MB chunk
+            with open(file_path, "rb") as f:
+                f.seek(start)
+                data = f.read(end - start + 1)
+            return StreamingResponse(
+                iter([data]),
+                status_code=206,
+                media_type="video/mp4",
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(len(data)),
+                },
+            )
+
+        return FileResponse(
+            path=str(file_path),
+            media_type="video/mp4",
         )
 
     @app.get("/api/tasks/{task_id}/download")
@@ -846,6 +839,29 @@ def register_routes(app: FastAPI):
             media_type="video/mp4",
         )
 
+
+    @app.post("/api/tasks/open-material-folder")
+    async def open_material_folder(req: Request):
+        """在文件管理器中打开并定位到素材文件."""
+        import json as _json
+        body = await req.json()
+        path = body.get("path", "")
+        if not path or not Path(path).exists():
+            raise HTTPException(status_code=404, detail="文件不存在")
+        abs_path = str(Path(path).resolve())
+        try:
+            import subprocess as _sp
+            import platform as _pf
+            system = _pf.system()
+            if system == "Windows":
+                _sp.Popen(["explorer", "/select,", abs_path])
+            elif system == "Darwin":
+                _sp.Popen(["open", "-R", abs_path])
+            else:
+                _sp.Popen(["xdg-open", str(Path(path).parent)])
+            return {"success": True, "path": abs_path}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"无法打开文件夹: {e}")
 
     @app.post("/api/tasks/{task_id}/open-folder")
     async def open_result_folder(task_id: str):

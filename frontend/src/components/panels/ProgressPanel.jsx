@@ -4,20 +4,18 @@ const STEPS = [
   { key: 'director', icon: '', label: '导演' },
   { key: 'analyzer', icon: '', label: '分析' },
   { key: 'editor',   icon: '️', label: '剪辑' },
-  { key: 'reviewer', icon: '', label: '审核' },
 ]
 
 function detectStep(progress) {
   if (!progress) return -1
   if (progress.includes('完成')) return STEPS.length
-  if (progress.includes('审核') || progress.includes('审查')) return 3
   if (progress.includes('裁剪') || progress.includes('剪辑') || progress.includes('编辑')) return 2
   if (progress.includes('分析') || progress.includes('采集') || progress.includes('提取')) return 1
   if (progress.includes('策略') || progress.includes('翻译') || progress.includes('导演')) return 0
   return -1
 }
 
-export default function ProgressPanel({ progress, reviewRound, error, logLines }) {
+export default function ProgressPanel({ progress, error, logLines }) {
   const logEndRef = useRef(null)
   const currentStep = detectStep(progress)
 
@@ -32,7 +30,7 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
         <div style={{
           fontSize: 'var(--text-xs)',
           fontWeight: 'var(--font-semibold)',
-          color: 'var(--text-tertiary)',
+          color: 'var(--muted-foreground)',
           marginBottom: 'var(--space-2)',
         }}>
           处理流程
@@ -44,8 +42,8 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
               height: 4,
               borderRadius: 2,
               background: i < currentStep ? 'var(--success)'
-                : i === currentStep ? 'var(--accent)'
-                : 'var(--border-default)',
+                : i === currentStep ? 'var(--primary)'
+                : 'var(--border)',
               transition: 'background var(--transition-normal)',
             }} />
           ))}
@@ -54,11 +52,11 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
           display: 'flex',
           justifyContent: 'space-between',
           fontSize: 'var(--text-xs)',
-          color: 'var(--text-tertiary)',
+          color: 'var(--muted-foreground)',
         }}>
           {STEPS.map((s, i) => (
             <span key={s.key} style={{
-              color: i <= currentStep ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              color: i <= currentStep ? 'var(--foreground)' : 'var(--muted-foreground)',
               fontWeight: i === currentStep ? 'var(--font-semibold)' : 'var(--font-normal)',
             }}>
               {s.icon} {s.label}
@@ -70,7 +68,7 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
       {/* 当前状态 */}
       <div style={{
         padding: 'var(--space-3)',
-        background: 'var(--accent-subtle)',
+        background: 'var(--accent)',
         border: '1px solid rgba(99,102,241,0.15)',
         borderRadius: 'var(--radius-md)',
         fontSize: 'var(--text-sm)',
@@ -78,14 +76,9 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
         justifyContent: 'space-between',
         alignItems: 'center',
       }}>
-        <span style={{ color: 'var(--accent)', fontWeight: 'var(--font-medium)' }}>
+        <span style={{ color: 'var(--primary)', fontWeight: 'var(--font-medium)' }}>
           {progress || '初始化...'}
         </span>
-        {reviewRound > 0 && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
-            审查第 {reviewRound} 轮
-          </span>
-        )}
       </div>
 
       {error && (
@@ -95,7 +88,7 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
           border: '1px solid rgba(239,68,68,0.3)',
           borderRadius: 'var(--radius-md)',
           fontSize: 'var(--text-sm)',
-          color: 'var(--danger)',
+          color: 'var(--destructive)',
         }}>
           {error}
         </div>
@@ -106,14 +99,14 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
         <div>
           <div style={{
             fontSize: 'var(--text-xs)',
-            color: 'var(--text-tertiary)',
+            color: 'var(--muted-foreground)',
             marginBottom: 'var(--space-2)',
           }}>
              实时日志
           </div>
           <div style={{
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border-subtle)',
+            background: 'var(--background)',
+            border: '1px solid var(--border)',
             borderRadius: 'var(--radius-md)',
             padding: 'var(--space-3)',
             maxHeight: 300,
@@ -124,7 +117,7 @@ export default function ProgressPanel({ progress, reviewRound, error, logLines }
           }}>
             {(logLines || []).map((line, i) => (
               <div key={i} style={{
-                color: i === 0 ? 'var(--accent)' : 'var(--text-tertiary)',
+                color: i === 0 ? 'var(--primary)' : 'var(--muted-foreground)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
               }}>

@@ -7,7 +7,7 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
   useEffect(() => {
     fetch('/api/results').then(r => r.json()).then(d => {
       if (d.success) setResults(d.results || [])
-    }).catch(() => {})
+    }).catch((e) => console.warn('加载结果列表失败:', e))
   }, [])
   if (!results.length) return null
   return (
@@ -23,8 +23,8 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              background: isSelected ? 'var(--accent-subtle)' : 'transparent',
-              border: isSelected ? '1px solid var(--accent)' : '1px solid transparent',
+              background: isSelected ? 'var(--primary)' : 'transparent',
+              border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
               marginBottom: 'var(--space-1)',
               transition: 'all var(--transition-fast)',
               display: 'flex',
@@ -42,7 +42,7 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
               </div>
               <div style={{
                 fontSize: 'var(--text-xs)',
-                color: 'var(--text-tertiary)',
+                color: 'var(--muted-foreground)',
                 marginTop: 2,
               }}>
                 {fmtSize(r.size_mb)} · {r.date}
@@ -58,7 +58,7 @@ export default function ResultsList({ onSelectResult, selectedUrl }) {
                 width: 24, height: 24,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-tertiary)',
+                color: 'var(--muted-foreground)',
                 fontSize: 'var(--text-xs)',
                 textDecoration: 'none',
                 opacity: 0.6,

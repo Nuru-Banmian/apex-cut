@@ -264,7 +264,7 @@ class Settings:
     #   │ qwen3.5-flash           轻量快速，1M 上下文 (省钱)       │
     #   └────────────────────────────────────────────────────────┘
     qwen_vision_model: str = field(
-        default_factory=lambda: os.getenv("QWEN_VISION_MODEL", "qwen3.7-plus")
+        default_factory=lambda: os.getenv("QWEN_VISION_MODEL", "qwen3-vl-flash")
     )
     #   ┌─ 质量优先 ─────────────────────────────────────────────┐
     #   │ qwen3.7-plus            原生多模态，1M 上下文 (推荐)   │
@@ -299,10 +299,6 @@ class Settings:
     )
 
     # ── 剪辑参数 ──
-    max_review_rounds: int = field(
-        default_factory=lambda: int(os.getenv("MAX_REVIEW_ROUNDS", "6"))
-    )
-    min_segment_duration: float = 0.5
     max_silence_duration: float = 2.0
     default_aspect_ratio: str = "16:9"
 
@@ -717,17 +713,92 @@ PROVIDER_REGISTRY = {
         "api_base": "https://api.anthropic.com",
         "api_style": "anthropic",
         "text_models": [
-            {"id": "claude-opus-4-8", "name": "Claude Opus 4.8 ", "desc": "最强旗舰，128K 输出 (推荐)"},
-            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "desc": "最佳速度+智能平衡，64K 输出"},
-            {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "desc": "快速便宜，64K 输出"},
+            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "desc": "最佳速度+智能平衡"},
+            {"id": "claude-opus-4-8", "name": "Claude Opus 4.8", "desc": "最强旗舰"},
+            {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "desc": "快速便宜"},
         ],
         "vision_models": [
-            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 ", "desc": "最佳视觉+智能平衡 (推荐)"},
+            {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "desc": "最佳视觉+智能平衡"},
             {"id": "claude-opus-4-8", "name": "Claude Opus 4.8", "desc": "最强视觉理解"},
             {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "desc": "快速视觉，低成本"},
         ],
         "default_text_model": "claude-sonnet-4-6",
         "default_vision_model": "claude-sonnet-4-6",
+    },
+    # ── 国内厂商（OpenAI 兼容）──
+    "moonshot": {
+        "name": "月之暗面 Kimi",
+        "api_base": "https://api.moonshot.cn/v1",
+        "api_style": "openai",
+        "text_models": [
+            {"id": "moonshot-v1-8k", "name": "Moonshot v1-8K", "desc": "通用对话，8K上下文"},
+            {"id": "moonshot-v1-32k", "name": "Moonshot v1-32K", "desc": "超长文本，32K上下文"},
+            {"id": "moonshot-v1-128k", "name": "Moonshot v1-128K", "desc": "长文档处理，128K上下文"},
+            {"id": "kimi-latest", "name": "Kimi Latest", "desc": "最新模型，自动升级"},
+        ],
+        "vision_models": [],
+        "default_text_model": "moonshot-v1-8k",
+        "default_vision_model": "",
+        "note": "Kimi 不支持视觉分析",
+    },
+    "doubao": {
+        "name": "字节豆包 (火山引擎)",
+        "api_base": "https://ark.cn-beijing.volces.com/api/v3",
+        "api_style": "openai",
+        "text_models": [
+            {"id": "doubao-pro-32k", "name": "豆包 Pro 32K", "desc": "旗舰模型，32K上下文"},
+            {"id": "doubao-pro-128k", "name": "豆包 Pro 128K", "desc": "长上下文，128K"},
+            {"id": "doubao-lite-32k", "name": "豆包 Lite 32K", "desc": "轻量快速，32K上下文"},
+            {"id": "doubao-lite-128k", "name": "豆包 Lite 128K", "desc": "轻量长上下文，128K"},
+        ],
+        "vision_models": [
+            {"id": "doubao-vision-pro-32k", "name": "豆包视觉 Pro", "desc": "多模态理解，32K"},
+        ],
+        "default_text_model": "doubao-pro-32k",
+        "default_vision_model": "doubao-vision-pro-32k",
+    },
+    "lingyi": {
+        "name": "零一万物 Yi",
+        "api_base": "https://api.lingyiwanwu.com/v1",
+        "api_style": "openai",
+        "text_models": [
+            {"id": "yi-large", "name": "Yi-Large", "desc": "大杯旗舰模型"},
+            {"id": "yi-medium", "name": "Yi-Medium", "desc": "中杯平衡模型"},
+            {"id": "yi-lightning", "name": "Yi-Lightning", "desc": "极速响应"},
+        ],
+        "vision_models": [
+            {"id": "yi-vision", "name": "Yi-Vision", "desc": "多模态视觉理解"},
+        ],
+        "default_text_model": "yi-large",
+        "default_vision_model": "yi-vision",
+    },
+    "minimax": {
+        "name": "MiniMax (海螺AI)",
+        "api_base": "https://api.minimax.chat/v1",
+        "api_style": "openai",
+        "text_models": [
+            {"id": "abab6.5s-chat", "name": "ABAB 6.5s", "desc": "日常对话模型"},
+            {"id": "abab6.5t-chat", "name": "ABAB 6.5t", "desc": "长文本处理"},
+            {"id": "abab5.5-chat", "name": "ABAB 5.5", "desc": "轻量快速"},
+        ],
+        "vision_models": [],
+        "default_text_model": "abab6.5s-chat",
+        "default_vision_model": "",
+        "note": "MiniMax 不支持视觉分析",
+    },
+    "baichuan": {
+        "name": "百川智能",
+        "api_base": "https://api.baichuan-ai.com/v1",
+        "api_style": "openai",
+        "text_models": [
+            {"id": "Baichuan4", "name": "百川 4", "desc": "最新旗舰模型"},
+            {"id": "Baichuan3-Turbo", "name": "百川 3 Turbo", "desc": "快速响应"},
+            {"id": "Baichuan2-Turbo", "name": "百川 2 Turbo", "desc": "轻量模型"},
+        ],
+        "vision_models": [],
+        "default_text_model": "Baichuan4",
+        "default_vision_model": "",
+        "note": "百川不支持视觉分析",
     },
 }
 

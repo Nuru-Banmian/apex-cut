@@ -12,11 +12,11 @@ export default function SidePanel({ phase, ...panelProps }) {
   const meta = PHASE_META[phase] || PHASE_META.setup
 
   return (
-    <aside style={{
+    <aside className="side-panel" style={{
       width: 'var(--panel-w)',
       minWidth: 'var(--panel-w)',
-      borderLeft: '1px solid var(--border-subtle)',
-      background: 'var(--bg-surface)',
+      borderLeft: '1px solid var(--border)',
+      background: 'var(--card)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
@@ -24,7 +24,7 @@ export default function SidePanel({ phase, ...panelProps }) {
       {/* 阶段标题 */}
       <div style={{
         padding: 'var(--space-4) var(--space-5)',
-        borderBottom: '1px solid var(--border-subtle)',
+        borderBottom: '1px solid var(--border)',
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

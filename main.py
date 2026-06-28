@@ -23,13 +23,26 @@ sys.path.insert(0, str(PROJECT_ROOT))
 def cmd_serve(args):
     """启动 FastAPI 服务."""
     import uvicorn
-    from starlette.formparsers import MultiPartParser
     from apex_cut.api.routes import register_routes
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
+    from starlette.requests import Request
 
-    # 上传大小限制 20GB（视频文件可能很大）
-    MultiPartParser.max_file_size = 20 * 1024 * 1024 * 1024
+    # 大文件上传临时目录改到项目 data 目录（C 盘空间不足 9GB）
+    import tempfile
+    from apex_cut.config import DATA_DIR
+    _upload_tmp = DATA_DIR / "tmp"
+    _upload_tmp.mkdir(parents=True, exist_ok=True)
+    tempfile.tempdir = str(_upload_tmp)
+
+    # Starlette 1.x: Request.form() 默认 max_part_size=1MB，提高上限
+    _original_get_form = Request._get_form
+
+    async def _patched_get_form(self, *, max_files=1000, max_fields=1000, max_part_size=1024 * 1024):
+        max_part_size = max(max_part_size, 20 * 1024 * 1024 * 1024)
+        return await _original_get_form(self, max_files=max_files, max_fields=max_fields, max_part_size=max_part_size)
+
+    Request._get_form = _patched_get_form
 
     app = FastAPI(
         title="AutoCut Agent",
@@ -44,6 +57,8 @@ def cmd_serve(args):
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=600,
     )
 
     register_routes(app)
@@ -52,7 +67,8 @@ def cmd_serve(args):
     print(f"   地址: http://localhost:{args.port}")
     print(f"   文档: http://localhost:{args.port}/docs\n")
 
-    uvicorn.run(app, host="0.0.0.0", port=args.port, loop="asyncio")
+    uvicorn.run(app, host="0.0.0.0", port=args.port, loop="asyncio",
+                timeout_keep_alive=300)
 
 
 def cmd_run(args):
